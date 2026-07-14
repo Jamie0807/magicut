@@ -1,0 +1,51 @@
+{
+    "name": "magicut",
+    "private": true,
+    "version": "1.0.0",
+    "description": "智能剪辑平台",
+    "scripts": {
+        "start": "pnpm --filter @magicut/desktop start",
+        "dev:desktop": "pnpm --filter @magicut/desktop start",
+        "package": "pnpm --filter @magicut/desktop package",
+        "package:mac": "pnpm --filter @magicut/desktop package:mac",
+        "package:win": "pnpm --filter @magicut/desktop package:win",
+        "make": "pnpm --filter @magicut/desktop make",
+        "make:mac": "pnpm --filter @magicut/desktop make:mac",
+        "make:win": "pnpm --filter @magicut/desktop make:win",
+        "publish": "pnpm --filter @magicut/desktop publish",
+        "dev:server": "pnpm --filter @magicut/server dev",
+        "build:server": "pnpm --filter @magicut/server build",
+        "start:server": "pnpm --filter @magicut/server start",
+        "lint": "pnpm -r --if-present run lint",
+        "format": "pnpm -r --if-present run format",
+        "spellcheck": "cspell lint --dot --gitignore --color --cache --show-suggestions \"(packages|apps)/**/*.@(html|js|cjs|mjs|ts|tsx|css|scss|md)\"",
+        "test": "pnpm -r --if-present run test",
+        "test:run": "pnpm -r --if-present run test:run",
+        "test:coverage": "pnpm -r --if-present run test:coverage",
+        "prepare": "husky",
+        "commit": "git-cz"
+    },
+    "keywords": [],
+    "license": "MIT",
+    "config": {
+        "commitizen": {
+            "path": "./node_modules/cz-git"
+        }
+    },
+    "devDependencies": {
+        "@commitlint/config-conventional": "20.0.0",
+        "@eslint/js": "9.38.0",
+        "commitizen": "4.3.1",
+        "commitlint": "20.1.0",
+        "cz-git": "1.12.0",
+        "eslint": "9.38.0",
+        "eslint-plugin-prettier": "5.5.4",
+        "eslint-plugin-simple-import-sort": "12.1.1",
+        "globals": "16.4.0",
+        "husky": "9.1.7",
+        "prettier": "3.6.2",
+        "typescript": "5.9.3",
+        "typescript-eslint": "8.46.2",
+        "cspell": "10.0.1"
+    }
+}
