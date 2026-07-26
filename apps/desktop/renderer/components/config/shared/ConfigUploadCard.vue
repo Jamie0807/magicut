@@ -17,7 +17,7 @@ withDefaults(
 <template>
     <section
         :class="[
-            'relative h-[72px] cursor-pointer rounded-[12px] border border-[#3A3F49] bg-[#101216] px-[14px] py-[13px] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#262B33]',
+            'relative h-[72px] w-[260px] cursor-pointer rounded-[12px] border border-[#3A3F49] bg-[#101216] px-[14px] py-[13px] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#262B33]',
             className
         ]"
     >

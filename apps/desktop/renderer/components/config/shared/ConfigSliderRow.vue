@@ -2,6 +2,7 @@
 import type { VoiceSlider } from '../../../types/config';
 
 import IconGlyph from '../../editor/IconGlyph.vue';
+import ConfigTrackSlider from './ConfigTrackSlider.vue';
 
 defineProps<{
     slider: VoiceSlider;
@@ -12,6 +13,7 @@ defineProps<{
     <div class="grid gap-2.5">
         <div class="flex items-center gap-2">
             <IconGlyph
+                v-if="slider.icon"
                 :name="slider.icon"
                 class-name="h-4 w-4 text-[#A9AFBA]"
             />
@@ -24,24 +26,10 @@ defineProps<{
                 {{ slider.value }}
             </span>
         </div>
-        <div class="flex w-full justify-end">
-            <div :class="['relative h-4 shrink-0', slider.trackWidthClassName]">
-                <span
-                    class="absolute top-[5px] left-0 h-[6px] w-full rounded-full bg-[#30343C]"
-                />
-                <span
-                    :class="[
-                        'absolute top-[5px] h-[6px] rounded-full bg-white',
-                        slider.progressWidthClassName
-                    ]"
-                />
-                <span
-                    :class="[
-                        'absolute top-0 h-4 w-4 rounded-full border-[3px] border-[#0E0F12] bg-white',
-                        slider.thumbLeftClassName
-                    ]"
-                />
-            </div>
-        </div>
+        <ConfigTrackSlider
+            :track-width-class-name="slider.trackWidthClassName"
+            :progress-width-class-name="slider.progressWidthClassName"
+            :thumb-left-class-name="slider.thumbLeftClassName"
+        />
     </div>
 </template>

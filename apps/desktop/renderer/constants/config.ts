@@ -1,6 +1,7 @@
 import type {
     BasicConfigPanelData,
     ConfigMode,
+    SubtitleConfigData,
     VisualConfigData,
     VoiceConfigData
 } from '../types/config';
@@ -86,14 +87,84 @@ export const voiceConfigPanel = {
 
 export const subtitleConfigPanel = {
     header: {
-        title: '字幕',
-        subtitle: '识别文稿节奏并对齐字幕节拍'
+        title: '字幕设置',
+        subtitle: '调整当前字幕轨显示样式'
     },
-    section: {
+    visibility: {
+        label: '显示字幕',
+        enabled: true
+    },
+    size: {
+        label: '字号',
+        value: '42 px',
+        trackWidthClassName: 'w-[260px]',
+        progressWidthClassName: 'w-[92px]',
+        thumbLeftClassName: 'left-[80px]'
+    },
+    style: {
         title: '字幕样式',
-        subtitle: '统一样式、断句和关键字高亮'
+        subtitle: '应用到当前字幕轨',
+        presets: [
+            {
+                label: '白字黑边',
+                active: true,
+                backgroundColor: '#0D201B',
+                borderColor: '#F05F73',
+                outerTextColor: '#000000',
+                innerTextColor: '#F5F7FA'
+            },
+            {
+                label: '经典白字',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#4A4C52',
+                outerTextColor: '#35373C',
+                innerTextColor: '#F5F7FA'
+            },
+            {
+                label: '黄字黑边',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#343841',
+                outerTextColor: '#050505',
+                innerTextColor: '#FFD400'
+            },
+            {
+                label: '红字白边',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#343841',
+                outerTextColor: '#FFFFFF',
+                innerTextColor: '#F05F73'
+            },
+            {
+                label: '青灰字幕',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#343841',
+                outerTextColor: '#14181D',
+                innerTextColor: '#9ADFE5'
+            },
+            {
+                label: '粉色字幕',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#343841',
+                outerTextColor: '#FFFFFF',
+                innerTextColor: '#FF6EA5'
+            },
+            {
+                label: '蓝色字幕',
+                active: false,
+                backgroundColor: '#111214',
+                borderColor: '#343841',
+                outerTextColor: '#0A0E12',
+                innerTextColor: '#24CFF2'
+            }
+        ],
+        activePresetLabel: '白字黑边'
     }
-} satisfies BasicConfigPanelData;
+} satisfies SubtitleConfigData;
 
 export const musicConfigPanel = {
     header: {

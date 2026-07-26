@@ -28,13 +28,16 @@ export type VoicePresetCard = {
     actionIcon: Extract<EditorIconName, 'play'>;
 };
 
-export type VoiceSlider = {
+export type SliderTrackConfig = {
     label: string;
     value: string;
-    icon: Extract<EditorIconName, 'volume-2' | 'gauge'>;
     trackWidthClassName: string;
     progressWidthClassName: string;
     thumbLeftClassName: string;
+};
+
+export type VoiceSlider = SliderTrackConfig & {
+    icon?: Extract<EditorIconName, 'volume-2' | 'gauge'>;
 };
 
 export type VoiceUploadCard = {
@@ -56,6 +59,33 @@ export type VoiceConfigData = {
     uploadCard: VoiceUploadCard;
     sliders: VoiceSlider[];
     actionLabel: string;
+};
+
+export type SubtitlePreset = {
+    label: string;
+    active: boolean;
+    backgroundColor: string;
+    borderColor: string;
+    outerTextColor: string;
+    innerTextColor: string;
+};
+
+export type SubtitleConfigData = {
+    header: {
+        title: string;
+        subtitle: string;
+    };
+    visibility: {
+        label: string;
+        enabled: boolean;
+    };
+    size: SliderTrackConfig;
+    style: {
+        title: string;
+        subtitle: string;
+        presets: SubtitlePreset[];
+        activePresetLabel: string;
+    };
 };
 
 export type BasicConfigPanelData = {

@@ -5,6 +5,7 @@ import { createSSRApp, h } from 'vue';
 import { renderToString } from '@vue/server-renderer';
 
 import ConfigPanel from '../renderer/components/config/ConfigPanel.vue';
+import ConfigPresetSwatch from '../renderer/components/config/shared/ConfigPresetSwatch.vue';
 import ModeRail from '../renderer/components/editor/ModeRail.vue';
 import { editorConfigMode } from '../renderer/constants/config';
 import EditorScreen from '../renderer/pages/EditorScreen.vue';
@@ -75,9 +76,75 @@ describe('EditorScreen', () => {
         expect(visualHtml).toContain('快捷调整');
         expect(visualHtml).toContain('输入你的任何想法');
         expect(visualHtml).toContain('aria-label="移除关联分镜"');
-        expect(subtitleHtml).toContain('字幕样式');
+        expect(subtitleHtml).toContain('字幕设置');
+        expect(subtitleHtml).toContain('显示字幕');
         expect(musicHtml).toContain('音乐库');
         expect(panelHtml).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('renders subtitle settings controls and preset swatches', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'subtitle' });
+
+        expect(html).toContain('字幕设置');
+        expect(html).toContain('调整当前字幕轨显示样式');
+        expect(html).toContain('显示字幕');
+        expect(html).toContain('aria-pressed="true"');
+        expect(html).toContain('42 px');
+        expect(html).toContain('w-[260px]');
+        expect(html).toContain('字幕样式');
+        expect(html).toContain('应用到当前字幕轨');
+        expect(html).toContain('白字黑边');
+        expect(html).toContain('经典白字');
+        expect(html).toContain('黄字黑边');
+        expect(html).toContain('红字白边');
+        expect(html).toContain('青灰字幕');
+        expect(html).toContain('粉色字幕');
+        expect(html).toContain('蓝色字幕');
+        expect(html).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('keeps seven subtitle presets with one active style', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'subtitle' });
+        const presetCount =
+            html.match(/data-testid="subtitle-preset"/g)?.length ?? 0;
+        const activePresetCount =
+            html.match(/data-testid="subtitle-preset" data-active="true"/g)
+                ?.length ?? 0;
+        const inactivePresetCount =
+            html.match(/data-testid="subtitle-preset" data-active="false"/g)
+                ?.length ?? 0;
+
+        expect(html).toContain('aria-label="显示字幕" aria-pressed="true"');
+        expect(presetCount).toBe(7);
+        expect(activePresetCount).toBe(1);
+        expect(inactivePresetCount).toBe(6);
+    });
+
+    it('positions subtitle preset glyph layers', async () => {
+        const html = await renderComponent(ConfigPresetSwatch, {
+            label: '白字黑边',
+            active: true,
+            backgroundColor: '#0D201B',
+            borderColor: '#F05F73',
+            outerTextColor: '#000000',
+            innerTextColor: '#F5F7FA'
+        });
+
+        expect(html).toContain('absolute top-[6px] left-[8px]');
+        expect(html).toContain('absolute top-[6px] left-[10px]');
+        expect(html).not.toContain('grid h-[20px] place-items-center');
+    });
+
+    it('reuses the shared slider track for voice and subtitle sliders', async () => {
+        const voiceHtml = await renderComponent(ConfigPanel, { mode: 'voice' });
+        const subtitleHtml = await renderComponent(ConfigPanel, {
+            mode: 'subtitle'
+        });
+        const trackMarkup =
+            'absolute top-[5px] left-0 h-[6px] w-full rounded-full bg-[#30343C]';
+
+        expect(voiceHtml).toContain(trackMarkup);
+        expect(subtitleHtml).toContain(trackMarkup);
     });
 
     it('renders mode rail buttons with active state and switch affordances', async () => {
