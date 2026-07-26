@@ -1,13 +1,13 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 
-import HomePage from '../pages/HomePage.vue';
+import EditorScreen from '../pages/EditorScreen.vue';
 
 export const router = createRouter({
     history: createWebHashHistory(),
     routes: [
         {
             path: '/',
-            component: HomePage
+            component: EditorScreen
         }
     ]
 });

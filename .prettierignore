@@ -1,1 +1,4 @@
 **/*.hbs
+.codex/
+.cspellcache
+pnpm-lock.yaml

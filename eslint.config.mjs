@@ -4,18 +4,22 @@ import tseslint from 'typescript-eslint';
 import importSort from 'eslint-plugin-simple-import-sort';
 import prettier from 'eslint-plugin-prettier';
 
+const ignoredPaths = [
+    '**/*/coverage/**/*',
+    '**/*/build/**/*',
+    '**/*/es/**/*',
+    '**/*/dist/**/*',
+    '**/.vite/**/*'
+];
+
 const typedTsFiles = tseslint.config({
     files: ['**/*.{ts,tsx}'],
     ignores: [
-        '**/*/coverage/**/*',
-        '**/*/build/**/*',
-        '**/*/es/**/*',
-        '**/*/dist/**/*',
+        ...ignoredPaths,
         'apps/server/app/generated/**/*',
-        '**/.vite/**/*',
         'apps/desktop/forge.config.ts',
         'apps/desktop/vite.*.config.ts',
-        'apps/desktop/vitest.config.ts'
+        'apps/desktop/vitest.config.mts'
     ],
     rules: {
         '@typescript-eslint/array-type': 'error',
@@ -57,7 +61,7 @@ const typedTsFiles = tseslint.config({
 });
 
 const configFiles = tseslint.config({
-    files: ['apps/desktop/*config.ts', 'apps/desktop/vitest.config.ts'],
+    files: ['apps/desktop/*config.ts', 'apps/desktop/vitest.config.mts'],
     languageOptions: {
         parser: tseslint.parser,
         globals: {
@@ -71,13 +75,17 @@ const configFiles = tseslint.config({
     plugins: { prettier }
 });
 
-export default tseslint.config({
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    ignores: ['**/*/coverage/**/*', '**/*/build/**/*', '**/*/es/**/*', '**/*/dist/**/*'],
-    languageOptions: {
-        globals: {
-            ...globals.browser,
-            ...globals.node
+export default tseslint.config(
+    {
+        extends: [js.configs.recommended, ...tseslint.configs.recommended],
+        languageOptions: {
+            globals: {
+                ...globals.browser,
+                ...globals.node
+            }
         }
-    }
-}, typedTsFiles, configFiles);
+    },
+    { ignores: ignoredPaths },
+    typedTsFiles,
+    configFiles
+);

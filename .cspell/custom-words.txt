@@ -1,4 +1,3 @@
-miaoma
 Asar
 vite
 magicut

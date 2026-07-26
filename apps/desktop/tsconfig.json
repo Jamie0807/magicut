@@ -20,6 +20,7 @@
         "renderer/**/*",
         "client/**/*",
         "tests/**/*",
+        "vitest.config.mts",
         "magicut.env.d.ts",
         "forge.env.d.ts"
     ]
