@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import AssistantPanel from '../components/editor/AssistantPanel.vue';
+import { shallowRef } from 'vue';
+
+import ConfigPanel from '../components/config/ConfigPanel.vue';
 import EditorHeader from '../components/editor/EditorHeader.vue';
 import ModeRail from '../components/editor/ModeRail.vue';
 import PreviewPanel from '../components/editor/PreviewPanel.vue';
 import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
+import { editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
+import type { ConfigMode } from '../types/config';
+
+const activeMode = shallowRef<ConfigMode>(editorConfigMode);
 </script>
 
 <template>
@@ -20,8 +26,11 @@ import { editorHeader } from '../constants/editor-screen';
             >
                 <ScriptPanel />
                 <PreviewPanel />
-                <AssistantPanel />
-                <ModeRail />
+                <ConfigPanel :mode="activeMode" />
+                <ModeRail
+                    :active-mode="activeMode"
+                    @mode-change="activeMode = $event"
+                />
             </section>
             <TimelinePanel />
         </div>

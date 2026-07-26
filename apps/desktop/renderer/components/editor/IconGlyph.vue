@@ -7,11 +7,14 @@ const iconPaths: Record<EditorIconName, string> = {
     'audio-lines': 'M2 10v3m4-7v11m4-14v18m4-13v7m4-10v13m4-8v3',
     captions: 'M4 6h16v12H4V6Zm4 5h4m2 0h2M8 14h2m3 0h3',
     'chevron-up': 'm18 15-6-6-6 6',
+    check: 'M20 6 9 17l-5-5',
     download: 'M12 4v12m0 0 5-5m-5 5-5-5M5 20h14',
+    gauge: 'M12 21a9 9 0 1 0-9-9m9 9a9 9 0 0 0 9-9m-9 9v-4m5.7-7.7-2.8 2.8M21 12h-4M7.1 15.9l2.8-2.8',
     image: 'M4 5h16v14H4V5Zm3 10 4-4 3 3 2-2 3 3M8 9h.01',
     link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
     magnet: 'M6 4h4v8a2 2 0 0 0 4 0V4h4v8a6 6 0 0 1-12 0V4Zm0 0v4m12-4v4',
     maximize: 'M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4',
+    'maximize-2': 'M8 4H4v4m12-4h4v4M4 20h4v-4m12 4v-4h-4',
     mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 8a7 7 0 0 0 14 0M12 18v3',
     minus: 'M5 12h14',
     music: 'M9 18V5l10-2v13M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3Zm10-2a3 3 0 1 1-3-3 3 3 0 0 1 3 3Z',
@@ -21,7 +24,9 @@ const iconPaths: Record<EditorIconName, string> = {
     scissors:
         'M4 7a3 3 0 1 0 3-3 3 3 0 0 0-3 3Zm0 10a3 3 0 1 0 3-3 3 3 0 0 0-3 3Zm6-5 9-7M10 12l9 7',
     send: 'M4 12 20 4l-6 16-3-7-7-1Z',
+    upload: 'M12 16V4m0 0 5 5m-5-5-5 5M5 20h14',
     'undo-2': 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+    'volume-2': 'M11 5 6 9H3v6h3l5 4V5Zm6 3a4 4 0 0 1 0 8',
     x: 'M18 6 6 18M6 6l12 12',
     volume: 'M5 10v4h4l5 4V6L9 10H5Zm12-1a4 4 0 0 1 0 6'
 };

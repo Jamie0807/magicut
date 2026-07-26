@@ -91,26 +91,22 @@ export const railModes: RailMode[] = [
     {
         label: '画面',
         icon: 'image',
-        tone: 'current',
-        heightClassName: 'h-[52px]'
+        mode: 'visual'
     },
     {
         label: '口播',
         icon: 'mic',
-        tone: 'default',
-        heightClassName: 'h-[52px]'
+        mode: 'voice'
     },
     {
         label: '字幕',
         icon: 'captions',
-        tone: 'default',
-        heightClassName: 'h-[72px]'
+        mode: 'subtitle'
     },
     {
         label: '音乐',
         icon: 'music',
-        tone: 'default',
-        heightClassName: 'h-[72px]'
+        mode: 'music'
     }
 ];
 

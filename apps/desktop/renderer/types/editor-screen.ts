@@ -1,14 +1,19 @@
+import type { ConfigMode } from './config';
+
 export type EditorIconName =
     | 'arrow-down'
     | 'arrow-up'
     | 'audio-lines'
     | 'captions'
     | 'chevron-up'
+    | 'check'
     | 'download'
+    | 'gauge'
     | 'image'
     | 'link'
     | 'magnet'
     | 'maximize'
+    | 'maximize-2'
     | 'mic'
     | 'minus'
     | 'music'
@@ -17,7 +22,9 @@ export type EditorIconName =
     | 'redo-2'
     | 'scissors'
     | 'send'
+    | 'upload'
     | 'undo-2'
+    | 'volume-2'
     | 'x'
     | 'volume';
 
@@ -38,8 +45,7 @@ export type AssistantTag = {
 export type RailMode = {
     label: string;
     icon: EditorIconName;
-    tone: 'current' | 'default';
-    heightClassName: string;
+    mode: ConfigMode;
 };
 
 export type TimelineTrack = {
