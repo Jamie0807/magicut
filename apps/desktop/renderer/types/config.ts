@@ -36,9 +36,11 @@ export type SliderTrackConfig = {
     thumbLeftClassName: string;
 };
 
-export type VoiceSlider = SliderTrackConfig & {
+export type SliderRow = SliderTrackConfig & {
     icon?: Extract<EditorIconName, 'volume-2' | 'gauge'>;
 };
+
+export type VoiceSlider = SliderRow;
 
 export type VoiceUploadCard = {
     title: string;
@@ -88,13 +90,37 @@ export type SubtitleConfigData = {
     };
 };
 
-export type BasicConfigPanelData = {
+export type MusicCategoryChip = {
+    label: string;
+    active: boolean;
+};
+
+export type MusicTrack = {
+    title: string;
+    meta: string;
+    active: boolean;
+    statusLabel?: string;
+    coverImageUrl: string;
+};
+
+export type MusicConfigData = {
     header: {
         title: string;
         subtitle: string;
+        toggleLabel: string;
+        toggleEnabled: boolean;
     };
-    section: {
+    current: {
+        sectionTitle: string;
+        trackTitle: string;
+        artistLine: string;
+        metaLine: string;
+        coverImageUrl: string;
+    };
+    volume: SliderRow;
+    recommendations: {
         title: string;
-        subtitle: string;
+        categories: MusicCategoryChip[];
+        tracks: MusicTrack[];
     };
 };

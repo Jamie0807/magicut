@@ -78,8 +78,39 @@ describe('EditorScreen', () => {
         expect(visualHtml).toContain('aria-label="移除关联分镜"');
         expect(subtitleHtml).toContain('字幕设置');
         expect(subtitleHtml).toContain('显示字幕');
-        expect(musicHtml).toContain('音乐库');
+        expect(musicHtml).toContain('音乐设置');
         expect(panelHtml).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('renders music settings with current track and recommendations', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'music' });
+
+        expect(html).toContain('音乐设置');
+        expect(html).toContain('控制背景音乐与推荐曲库');
+        expect(html).toContain('开启');
+        expect(html).toContain('当前音乐');
+        expect(html).toContain('Eutopia');
+        expect(html).toContain('Mika Chen');
+        expect(html).toContain('偏慢 · 02:01 · 已对齐时间线');
+        expect(html).toContain('音量');
+        expect(html).toContain('60%');
+        expect(html).toContain('推荐音乐');
+        expect(html).toContain('全部');
+        expect(html).toContain('平静');
+        expect(html).toContain('欢快');
+        expect(html).toContain('励志');
+        expect(html).toContain('抒情');
+        expect(html).toContain('更多');
+        expect(html).toContain('使用中');
+        expect(html).toContain('eutopia.png');
+        expect(html).toContain('卡农（经典钢琴版）');
+        expect(html).toContain('通用 日常 平和');
+        expect(html).toContain('Ylang Ylang');
+        expect(html).toContain('温馨治愈音乐之一');
+        expect(html).toContain('My Treasure');
+        expect(html).not.toContain('移除');
+        expect(html).not.toContain('应用音乐');
+        expect(html).not.toMatch(forbiddenBrandPattern);
     });
 
     it('renders subtitle settings controls and preset swatches', async () => {

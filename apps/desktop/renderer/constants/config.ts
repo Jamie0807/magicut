@@ -1,6 +1,6 @@
 import type {
-    BasicConfigPanelData,
     ConfigMode,
+    MusicConfigData,
     SubtitleConfigData,
     VisualConfigData,
     VoiceConfigData
@@ -168,11 +168,93 @@ export const subtitleConfigPanel = {
 
 export const musicConfigPanel = {
     header: {
-        title: '音乐',
-        subtitle: '为成片选择合适的背景音乐'
+        title: '音乐设置',
+        subtitle: '控制背景音乐与推荐曲库',
+        toggleLabel: '开启',
+        toggleEnabled: true
     },
-    section: {
-        title: '音乐库',
-        subtitle: '支持氛围、节奏和情绪筛选'
+    current: {
+        sectionTitle: '当前音乐',
+        trackTitle: 'Eutopia',
+        artistLine: 'Mika Chen · 平静 / 社会题材',
+        metaLine: '偏慢 · 02:01 · 已对齐时间线',
+        coverImageUrl: new URL('../assets/music/eutopia.png', import.meta.url)
+            .href
+    },
+    volume: {
+        label: '音量',
+        value: '60%',
+        icon: 'volume-2',
+        trackWidthClassName: 'w-[260px]',
+        progressWidthClassName: 'w-[156px]',
+        thumbLeftClassName: 'left-[148px]'
+    },
+    recommendations: {
+        title: '推荐音乐',
+        categories: [
+            { label: '全部', active: false },
+            { label: '平静', active: true },
+            { label: '欢快', active: false },
+            { label: '励志', active: false },
+            { label: '抒情', active: false },
+            { label: '更多', active: false }
+        ],
+        tracks: [
+            {
+                title: 'Eutopia',
+                meta: '平静 | 适合社会题材 | 偏慢 | 02:01',
+                active: true,
+                statusLabel: '使用中',
+                coverImageUrl: new URL(
+                    '../assets/music/eutopia.png',
+                    import.meta.url
+                ).href
+            },
+            {
+                title: '卡农（经典钢琴版）',
+                meta: '平静 | 适合通用题材 | 偏快 | 01:43',
+                active: false,
+                coverImageUrl: new URL(
+                    '../assets/music/canon.png',
+                    import.meta.url
+                ).href
+            },
+            {
+                title: '通用 日常 平和',
+                meta: '平静 | 适合通用题材 | 适中 | 00:20',
+                active: false,
+                coverImageUrl: new URL(
+                    '../assets/music/plain-day.png',
+                    import.meta.url
+                ).href
+            },
+            {
+                title: 'Ylang Ylang',
+                meta: '平静 | 适合财经题材 | 偏慢 | 03:33',
+                active: false,
+                coverImageUrl: new URL(
+                    '../assets/music/ylang-ylang.png',
+                    import.meta.url
+                ).href
+            },
+            {
+                title: '温馨治愈音乐之一',
+                meta: '平静 | 适合社会题材 | 偏快 | 00:57',
+                active: false,
+                coverImageUrl: new URL(
+                    '../assets/music/warm-healing.png',
+                    import.meta.url
+                ).href
+            },
+            {
+                title: 'My Treasure',
+                meta: '平静 | 适合通用题材 | 偏快 | 01:25',
+                active: false,
+                coverImageUrl: new URL(
+                    '../assets/music/my-treasure.png',
+                    import.meta.url
+                ).href
+            }
+        ]
     }
-} satisfies BasicConfigPanelData;
+} satisfies MusicConfigData;

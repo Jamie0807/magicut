@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { VoiceSlider } from '../../../types/config';
+import type { SliderRow } from '../../../types/config';
 
 import IconGlyph from '../../editor/IconGlyph.vue';
 import ConfigTrackSlider from './ConfigTrackSlider.vue';
 
 defineProps<{
-    slider: VoiceSlider;
+    slider: SliderRow;
 }>();
 </script>
 
