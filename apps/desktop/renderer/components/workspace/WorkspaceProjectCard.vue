@@ -19,6 +19,7 @@ defineProps<{
         <RouterLink
             :to="project.href"
             :aria-label="`打开项目：${project.title}`"
+            data-client-route="true"
             class="group relative z-10 flex h-full flex-col overflow-hidden rounded-[18px]"
         >
             <div class="relative h-[130px] w-full overflow-hidden">

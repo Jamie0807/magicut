@@ -10,21 +10,18 @@ import ConfigPresetSwatch from '../renderer/components/config/shared/ConfigPrese
 import ModeRail from '../renderer/components/editor/ModeRail.vue';
 import { editorConfigMode } from '../renderer/constants/config';
 import EditorScreen from '../renderer/pages/EditorScreen.vue';
-import HomePage from '../renderer/pages/HomePage.vue';
+import { appRoutes } from '../renderer/router';
 import { createConfigModeSelectionHandler } from '../renderer/utils/configModeSelection';
 
 const renderEditorScreen = async () => {
     const app = createSSRApp(EditorScreen);
     const router = createRouter({
         history: createMemoryHistory(),
-        routes: [
-            { path: '/', component: EditorScreen },
-            { path: '/workspace', component: HomePage }
-        ]
+        routes: appRoutes
     });
 
     app.use(router);
-    await router.push('/');
+    await router.push('/editor');
     await router.isReady();
 
     return renderToString(app);

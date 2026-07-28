@@ -23,3 +23,24 @@
         overflow: hidden;
     }
 }
+
+@layer utilities {
+    .gradient-text-motion {
+        color: transparent;
+        background-position: 0% 50%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        animation: gradient-text-pan var(--gradient-text-duration, 8s)
+            ease-in-out infinite alternate;
+    }
+
+    @keyframes gradient-text-pan {
+        from {
+            background-position: 0% 50%;
+        }
+
+        to {
+            background-position: 100% 50%;
+        }
+    }
+}

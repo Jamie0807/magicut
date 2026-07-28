@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router';
-
 import type { WorkspaceCreateCard as WorkspaceCreateCardData } from '../../types/workspace';
 import IconGlyph from '../editor/IconGlyph.vue';
 
 defineProps<{
     card: WorkspaceCreateCardData;
 }>();
+
+defineEmits<{
+    create: [];
+}>();
 </script>
 
 <template>
-    <RouterLink
-        :to="card.href"
+    <button
+        type="button"
         :aria-label="card.title"
-        class="group flex h-[250px] flex-col items-center justify-center gap-[18px] rounded-[18px] border border-[#4A4D54]/80 bg-[#202123]/72 px-4 py-7 shadow-[0_18px_48px_rgba(0,0,0,0.22)] transition-all duration-200 supports-[backdrop-filter]:backdrop-blur-[18px] hover:-translate-y-1 hover:border-white/20 hover:bg-[#25272B]/82"
+        class="group flex h-[250px] w-full cursor-pointer appearance-none flex-col items-center justify-center gap-[18px] rounded-[18px] border border-[#4A4D54]/80 bg-[#202123]/72 px-4 py-7 text-left shadow-[0_18px_48px_rgba(0,0,0,0.22)] transition-all duration-200 supports-[backdrop-filter]:backdrop-blur-[18px] hover:-translate-y-1 hover:border-white/20 hover:bg-[#25272B]/82"
+        @click="$emit('create')"
     >
         <div class="relative h-[88px] w-[92px]">
             <div
@@ -33,5 +36,5 @@ defineProps<{
         >
             {{ card.title }}
         </span>
-    </RouterLink>
+    </button>
 </template>

@@ -10,21 +10,25 @@ export type WorkspaceHeaderContent = {
     subtitle: string;
 };
 
+export type WorkspaceView = 'create' | 'projects';
+
 export type WorkspaceNavTone = 'default' | 'active';
 
 export type WorkspaceNavItem = {
     label: string;
     icon: EditorIconName;
     href?: string;
+    view?: WorkspaceView;
     tone: WorkspaceNavTone;
 };
 
 export type WorkspaceCreateCard = {
     title: string;
-    href: string;
+    view: WorkspaceView;
 };
 
 export type WorkspaceProject = {
+    id: string;
     title: string;
     createdAt: string;
     coverImageUrl: string;

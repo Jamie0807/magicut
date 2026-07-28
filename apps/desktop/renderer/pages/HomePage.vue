@@ -1,14 +1,50 @@
 <script setup lang="ts">
-import WorkspaceHeader from '../components/workspace/WorkspaceHeader.vue';
-import WorkspaceProjectGrid from '../components/workspace/WorkspaceProjectGrid.vue';
+import { computed, shallowRef, watch } from 'vue';
+
+import CreateMainContent from '../components/create/CreateMainContent.vue';
+import WorkspaceProjectsContent from '../components/workspace/WorkspaceProjectsContent.vue';
 import WorkspaceSidebar from '../components/workspace/WorkspaceSidebar.vue';
+import { createPageContent } from '../constants/create';
 import {
+    getWorkspaceNavItems,
     workspaceBrand,
     workspaceCreateCard,
     workspaceHeader,
-    workspaceNavItems,
     workspaceProjects
 } from '../constants/workspace';
+import type { WorkspaceView } from '../types/workspace';
+
+const props = withDefaults(
+    defineProps<{
+        initialView?: WorkspaceView;
+    }>(),
+    {
+        initialView: 'projects'
+    }
+);
+
+const activeView = shallowRef<WorkspaceView>(props.initialView);
+const workspaceNavItems = computed(() =>
+    getWorkspaceNavItems(activeView.value)
+);
+
+const viewClassName = (view: WorkspaceView) => [
+    'absolute inset-0 min-w-0 transition-opacity duration-200',
+    activeView.value === view
+        ? 'pointer-events-auto opacity-100'
+        : 'pointer-events-none opacity-0'
+];
+
+const selectView = (view: WorkspaceView) => {
+    activeView.value = view;
+};
+
+watch(
+    () => props.initialView,
+    (nextView) => {
+        activeView.value = nextView;
+    }
+);
 </script>
 
 <template>
@@ -22,31 +58,27 @@ import {
             <WorkspaceSidebar
                 :brand="workspaceBrand"
                 :nav-items="workspaceNavItems"
+                @nav-item-select="selectView"
             />
             <section
-                class="relative min-w-0 overflow-y-auto bg-[#111318]/24 backdrop-blur-[12px]"
+                class="workspace-view-stack relative min-w-0 overflow-hidden"
             >
                 <div
-                    aria-hidden="true"
-                    class="workspace-dot-field-layer pointer-events-none absolute inset-0 z-[1] overflow-hidden opacity-100"
+                    data-workspace-view="create"
+                    :class="viewClassName('create')"
                 >
-                    <div
-                        class="h-full w-full bg-[radial-gradient(circle_at_28%_22%,rgba(168,85,247,0.22)_0%,transparent_18%),radial-gradient(circle_at_72%_16%,rgba(0,242,255,0.12)_0%,transparent_16%),radial-gradient(circle_at_50%_50%,#120F17_0%,transparent_42%)]"
-                    />
-                    <div
-                        class="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.15)_1px,transparent_0)] bg-[length:14px_14px] opacity-35"
-                    />
+                    <CreateMainContent :content="createPageContent" />
                 </div>
                 <div
-                    class="relative z-10 flex min-h-full flex-col px-[86px] pt-[180px] pb-10"
+                    data-workspace-view="projects"
+                    :class="viewClassName('projects')"
                 >
-                    <WorkspaceHeader :content="workspaceHeader" />
-                    <div class="mt-[18px]">
-                        <WorkspaceProjectGrid
-                            :create-card="workspaceCreateCard"
-                            :projects="workspaceProjects"
-                        />
-                    </div>
+                    <WorkspaceProjectsContent
+                        :header="workspaceHeader"
+                        :create-card="workspaceCreateCard"
+                        :projects="workspaceProjects"
+                        @create="selectView('create')"
+                    />
                 </div>
             </section>
         </div>

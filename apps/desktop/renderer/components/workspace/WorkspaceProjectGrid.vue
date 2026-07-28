@@ -11,12 +11,16 @@ defineProps<{
     createCard: WorkspaceCreateCardData;
     projects: WorkspaceProject[];
 }>();
+
+defineEmits<{
+    create: [];
+}>();
 </script>
 
 <template>
     <ul class="grid grid-cols-4 gap-[18px]">
         <li>
-            <WorkspaceCreateCard :card="createCard" />
+            <WorkspaceCreateCard :card="createCard" @create="$emit('create')" />
         </li>
         <li v-for="project in projects" :key="project.title">
             <WorkspaceProjectCard :project="project" />

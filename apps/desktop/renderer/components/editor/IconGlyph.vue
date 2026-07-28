@@ -6,6 +6,7 @@ const iconPaths: Record<EditorIconName, string> = {
     'arrow-up': 'M12 19V5m0 0-7 7m7-7 7 7',
     'audio-lines': 'M2 10v3m4-7v11m4-14v18m4-13v7m4-10v13m4-8v3',
     captions: 'M4 6h16v12H4V6Zm4 5h4m2 0h2M8 14h2m3 0h3',
+    'chevron-down': 'm6 9 6 6 6-6',
     'chevron-up': 'm18 15-6-6-6 6',
     check: 'M20 6 9 17l-5-5',
     download: 'M12 4v12m0 0 5-5m-5 5-5-5M5 20h14',
@@ -29,6 +30,8 @@ const iconPaths: Record<EditorIconName, string> = {
     scissors:
         'M4 7a3 3 0 1 0 3-3 3 3 0 0 0-3 3Zm0 10a3 3 0 1 0 3-3 3 3 0 0 0-3 3Zm6-5 9-7M10 12l9 7',
     send: 'M4 12 20 4l-6 16-3-7-7-1Z',
+    sparkles:
+        'M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 16l-1.7-5L6 9.3l4.3-1.7L12 3Zm6.5 10 .9 2.2 2.1.8-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.8.9-2.2ZM5.5 13l.8 2 1.9.7-1.9.7-.8 2-.8-2-1.9-.7 1.9-.7.8-2Z',
     upload: 'M12 16V4m0 0 5 5m-5-5-5 5M5 20h14',
     'undo-2': 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
     'volume-2': 'M11 5 6 9H3v6h3l5 4V5Zm6 3a4 4 0 0 1 0 8',

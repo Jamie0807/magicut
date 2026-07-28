@@ -7,11 +7,25 @@ import HomePage from '../pages/HomePage.vue';
 export const appRoutes = [
     {
         path: '/',
+        component: HomePage,
+        props: {
+            initialView: 'create'
+        }
+    },
+    {
+        path: '/editor',
+        component: EditorScreen
+    },
+    {
+        path: '/editor/:projectId',
         component: EditorScreen
     },
     {
         path: '/workspace',
-        component: HomePage
+        component: HomePage,
+        props: {
+            initialView: 'projects'
+        }
     }
 ] satisfies RouteRecordRaw[];
 
