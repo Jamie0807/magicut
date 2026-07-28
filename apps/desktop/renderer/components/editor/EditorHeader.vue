@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { editorHeader } from '../../constants/editor-screen';
 
+import EditorHomeLink from './EditorHomeLink.vue';
 import IconGlyph from './IconGlyph.vue';
 </script>
 
@@ -9,11 +10,10 @@ import IconGlyph from './IconGlyph.vue';
         class="flex h-20 items-start justify-between border-b border-[#2A2F38] bg-[#111318] px-5 [app-region:drag]"
     >
         <div class="flex w-[230px] items-center gap-3 pt-[30px]">
-            <div
-                class="grid h-[30px] w-[30px] place-items-center rounded-lg bg-[#F05F73] text-xs font-black text-white"
-            >
-                剪
-            </div>
+            <EditorHomeLink
+                :href="editorHeader.homeHref"
+                :label="editorHeader.homeLabel"
+            />
             <div class="grid gap-0.5">
                 <div class="text-[15px] font-bold">
                     {{ editorHeader.productName }}

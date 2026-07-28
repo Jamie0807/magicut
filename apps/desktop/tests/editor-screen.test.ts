@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Component } from 'vue';
 import { createSSRApp, h } from 'vue';
+import { createMemoryHistory, createRouter } from 'vue-router';
 
 import { renderToString } from '@vue/server-renderer';
 
@@ -9,9 +10,25 @@ import ConfigPresetSwatch from '../renderer/components/config/shared/ConfigPrese
 import ModeRail from '../renderer/components/editor/ModeRail.vue';
 import { editorConfigMode } from '../renderer/constants/config';
 import EditorScreen from '../renderer/pages/EditorScreen.vue';
+import HomePage from '../renderer/pages/HomePage.vue';
 import { createConfigModeSelectionHandler } from '../renderer/utils/configModeSelection';
 
-const renderEditorScreen = () => renderToString(createSSRApp(EditorScreen));
+const renderEditorScreen = async () => {
+    const app = createSSRApp(EditorScreen);
+    const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+            { path: '/', component: EditorScreen },
+            { path: '/workspace', component: HomePage }
+        ]
+    });
+
+    app.use(router);
+    await router.push('/');
+    await router.isReady();
+
+    return renderToString(app);
+};
 const renderComponent = (
     component: Component,
     props?: Record<string, unknown>
@@ -53,6 +70,18 @@ describe('EditorScreen', () => {
 
     it('uses voice config as the default renderer strategy', () => {
         expect(editorConfigMode).toBe('voice');
+    });
+
+    it('links the editor logo back to the workspace', async () => {
+        const html = await renderEditorScreen();
+
+        expect(html).toContain('aria-label="返回工作台"');
+        expect(html).toContain('href="/workspace"');
+        expect(html).toContain('group-hover:hidden');
+        expect(html).toContain('group-hover:grid');
+        expect(html).toContain('group-focus-visible:hidden');
+        expect(html).toContain('group-focus-visible:grid');
+        expect(html).not.toMatch(forbiddenBrandPattern);
     });
 
     it('switches config panel strategies by mode', async () => {

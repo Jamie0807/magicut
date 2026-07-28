@@ -14,6 +14,8 @@ export const editorHeader = {
     ariaLabel: '智能视频编辑器-画面',
     productName: 'Magicut',
     productDescription: '智能视频剪辑工具',
+    homeHref: '/workspace',
+    homeLabel: '返回工作台',
     title: '口播短片自动剪辑工程',
     status: '2 分钟前更新 · 已自动保存',
     primaryAction: '渲染导出'
