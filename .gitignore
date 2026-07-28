@@ -16,9 +16,16 @@ pids
 *.pid.lock
 .DS_Store
 
+# Local environment secrets
+.env
+.env.local
+.env.*
+!.env.example
+
 # Dependency directories
 node_modules/
 jspm_packages/
+.dependencygraph
 
 # TypeScript cache
 *.tsbuildinfo
