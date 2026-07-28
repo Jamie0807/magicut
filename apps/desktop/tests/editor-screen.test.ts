@@ -57,7 +57,7 @@ describe('EditorScreen', () => {
         expect(html).toContain('口播短片自动剪辑工程');
         expect(html).toContain('2 分钟前更新 · 已自动保存');
         expect(html).toContain('文稿字幕');
-        expect(html).toContain('8 段分镜 · 00:30 · 当前 00:04-00:08');
+        expect(html).toContain('9 段分镜 · 01:30 · 当前 00:08-00:20');
         expect(html).toContain('视频预览');
         expect(html).toContain('口播配音');
         expect(html).toContain('为当前分镜生成旁白音轨');
@@ -233,14 +233,18 @@ describe('EditorScreen', () => {
             'grid-cols-[300px_minmax(420px,1fr)_320px_59px]'
         );
         expect(html).toContain('grid-cols-[200px_minmax(0,1fr)]');
+        expect(html).toContain('grid-rows-[30px_50px_50px_50px_50px]');
+        expect(html).toContain('min-w-[1728px]');
+        expect(html).toContain('w-[1728px]');
+        expect(html).toContain('h-[272px]');
+        expect(html).toContain('h-[42px]');
+        expect(html).toContain('overflow-x-auto');
         expect(html).toContain(
-            'grid-rows-[30px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+            'absolute top-[35px] left-[191px] h-[237px] w-5'
         );
-        expect(html).toContain('min-w-[1721px]');
-        expect(html).toContain('h-[320px]');
-        expect(html).toContain('h-[52px]');
         expect(html).toContain('[app-region:drag]');
         expect(html).toContain('[app-region:no-drag]');
+        expect(html).not.toContain('absolute top-[45px] left-[195px]');
     });
 
     it('renders accessible editing controls', async () => {
@@ -249,10 +253,62 @@ describe('EditorScreen', () => {
         expect(html).toContain('aria-label="播放预览"');
         expect(html).toContain('aria-label="预览音量"');
         expect(html).toContain('aria-label="放大预览"');
-        expect(html).toContain('aria-label="撤销"');
-        expect(html).toContain('aria-label="重做"');
-        expect(html).toContain('aria-label="分割"');
-        expect(html).toContain('aria-label="联动"');
-        expect(html).toContain('aria-label="显示波形"');
+        expect(html).not.toContain('aria-label="撤销"');
+        expect(html).not.toContain('aria-label="重做"');
+        expect(html).not.toContain('aria-label="分割"');
+        expect(html).not.toContain('aria-label="联动"');
+        expect(html).toContain('aria-label="吸附"');
+        expect(html).toContain('aria-label="波纹"');
+    });
+
+    it('renders four compact scene-aligned timeline tracks with continuous clips', async () => {
+        const html = await renderEditorScreen();
+        const countMatches = (pattern: RegExp) =>
+            html.match(pattern)?.length ?? 0;
+
+        expect(html).toContain('视频 1');
+        expect(html).toContain('配音');
+        expect(html).toContain('字幕');
+        expect(html).toContain('音乐');
+        expect(html).toContain('9 个分镜');
+        expect(html).toContain('9 段旁白');
+        expect(html).toContain('18 段字幕');
+        expect(html).toContain('Eutopia · 全片背景音乐');
+        expect(html).toContain('分镜09');
+        expect(html).toContain('旁白09');
+        expect(html).toContain('字幕09');
+
+        expect(countMatches(/data-timeline-track="video"/g)).toBe(1);
+        expect(countMatches(/data-timeline-track="voice"/g)).toBe(1);
+        expect(countMatches(/data-timeline-track="subtitle"/g)).toBe(1);
+        expect(countMatches(/data-timeline-track="music"/g)).toBe(1);
+        expect(countMatches(/data-timeline-clip-kind="video"/g)).toBe(9);
+        expect(countMatches(/data-timeline-clip-kind="voice"/g)).toBe(9);
+        expect(countMatches(/data-timeline-clip-kind="subtitle"/g)).toBe(18);
+        expect(countMatches(/data-timeline-clip-kind="music"/g)).toBe(1);
+
+        expect(html).toContain('data-duration-seconds="8"');
+        expect(html).toContain('data-duration-seconds="15"');
+        expect(html).toContain('data-width-px="154"');
+        expect(html).toContain('data-width-px="288"');
+        expect(html).toContain('字幕02-02');
+        expect(html).toContain('h-[28px]');
+        expect(html).not.toContain('h-[38px]');
+        expect(html).toContain('text-[11px]');
+        expect(html).not.toContain('text-sm font-extrabold text-[#F5F7FA]');
+        expect(html).toContain('h-3 w-0.5 shrink-0');
+        expect(html).toContain('h-3 w-3 shrink-0 text-[#F6B84B]');
+        expect(html).toContain('h-3 w-3 shrink-0 text-[#8EA2FF]');
+        expect(html).toContain('ml-auto flex gap-[2px]');
+        expect(html).toContain('h-2 w-2 rounded');
+        expect(html).toContain('data-waveform-size="compact"');
+        expect(html).toContain('w-[2px] rounded-full bg-[#BFFFE266]');
+        expect(html).toContain('rounded-md border');
+        expect(html).toContain('w-[192px]');
+        expect(html).toContain('w-[1728px]');
+        expect(html).toContain('gap-0');
+        expect(html).not.toContain('gap-[15px] px-3');
+        expect(html).not.toContain('gap-3 px-3');
+        expect(html).not.toContain('w-[760px]');
     });
 });

@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { CSSProperties } from 'vue';
 
 import {
-    timelineAudioClips,
-    timelineHistoryActions,
+    timelineClipsByTrack,
     timelineLayout,
     timelinePanel,
     timelineTicks,
     timelineToolActions,
-    timelineTracks,
-    timelineVideoClips
+    timelineTracks
 } from '../../constants/editor-screen';
 import type {
-    TimelineAudioClip,
+    TimelineClip,
     TimelineToolAction,
-    TimelineTrack
+    TimelineTrack,
+    TimelineTrackKind
 } from '../../types/editor-screen';
 
 import IconButton from './IconButton.vue';
@@ -26,9 +26,18 @@ const trackToneClassNames: Record<TimelineTrack['tone'], string> = {
     muted: 'bg-[#0E1014]'
 };
 
-const audioToneClassNames: Record<TimelineAudioClip['tone'], string> = {
-    voice: 'bg-[#245A34] border-white/10 justify-start px-3',
-    pause: 'bg-[#2C3038] border-white/10 justify-center'
+const trackContentClassNames: Record<TimelineTrackKind, string> = {
+    music: 'bg-[#101216]',
+    subtitle: 'bg-[#15171B]',
+    video: 'bg-[#15171B]',
+    voice: 'bg-[#101216]'
+};
+
+const clipTextClassNames: Record<TimelineTrackKind, string> = {
+    music: 'text-[11px] font-bold text-[#DCE7FF]',
+    subtitle: 'text-[11px] font-bold text-[#F5F7FA]',
+    video: 'text-[11px] font-extrabold text-[#F5F7FA]',
+    voice: 'text-[11px] font-bold text-[#F5F7FA]'
 };
 
 const timelineToolButtonVariant: Record<
@@ -40,18 +49,23 @@ const timelineToolButtonVariant: Record<
 };
 
 const decorativeThumbnailIndexes = [0, 1, 2, 3];
+const timelineTrackRowStartClassNames = [
+    'row-start-2',
+    'row-start-3',
+    'row-start-4',
+    'row-start-5'
+] as const;
 
 const trackRows = computed(() =>
     timelineTracks.map((track, index) => ({
         track,
-        rowClassName:
-            index === 0
-                ? 'row-start-2'
-                : index === 1
-                  ? 'row-start-3'
-                  : 'row-start-4'
+        rowClassName: timelineTrackRowStartClassNames[index] ?? 'row-start-2'
     }))
 );
+
+const clipStyle = (clip: TimelineClip): CSSProperties => ({
+    width: `${clip.widthPx}px`
+});
 </script>
 
 <template>
@@ -64,39 +78,26 @@ const trackRows = computed(() =>
     >
         <div
             :class="[
-                'flex h-[52px] w-full items-center justify-between border-b border-[#2A2F38] bg-[#15171B] px-3 py-[10px]',
+                'flex h-[42px] w-full items-center justify-between border-b border-[#2A2F38] bg-[#15171B] px-3 py-[6px]',
                 timelineLayout.titleBarHeightClassName
             ]"
         >
             <div class="flex items-center gap-4">
-                <h2 class="text-lg font-extrabold">
+                <h2 class="font-sm">
                     {{ timelinePanel.title }}
                 </h2>
-                <span
-                    class="font-['Geist_Mono'] text-sm font-semibold text-[#A9AFBA]"
-                >
+                <span class="font-['Geist_Mono'] text-xs text-[#A9AFBA]">
                     {{ timelinePanel.timecode }}
                 </span>
             </div>
             <div class="flex items-center gap-2.5">
-                <div
-                    class="flex h-8 w-[76px] items-center gap-2.5 overflow-hidden"
-                >
-                    <IconButton
-                        v-for="action in timelineHistoryActions"
-                        :key="action.label"
-                        :label="action.label"
-                        :icon="action.icon"
-                        variant="history"
-                        icon-class-name="h-4 w-4"
-                    />
-                </div>
                 <IconButton
                     v-for="action in timelineToolActions"
                     :key="action.label"
                     :label="action.label"
                     :icon="action.icon"
                     :variant="timelineToolButtonVariant[action.tone]"
+                    class-name="h-7 w-7"
                     icon-class-name="h-[15px] w-[15px]"
                 />
                 <div class="flex h-[14px] w-[136px] items-center gap-2">
@@ -132,33 +133,12 @@ const trackRows = computed(() =>
             <div
                 class="col-start-1 row-start-1 border-r border-b border-[#2A2F38] bg-[#111318]"
             />
-            <div
-                :class="[
-                    'relative col-start-2 row-start-1 flex h-full border-b border-[#2A2F38] bg-[#121418]',
-                    timelineLayout.contentMinWidthClassName
-                ]"
-            >
-                <div
-                    v-for="(tick, index) in timelineTicks"
-                    :key="tick"
-                    :class="[
-                        'relative w-[150px] border-l border-[#313741]',
-                        index === 0 ? 'border-l-0' : ''
-                    ]"
-                >
-                    <span
-                        class="absolute top-2 left-2 font-['Geist_Mono'] text-[10px] text-[#6F7784]"
-                    >
-                        {{ tick }}
-                    </span>
-                </div>
-            </div>
 
             <div
                 v-for="{ track, rowClassName } in trackRows"
-                :key="track.title"
+                :key="track.id"
                 :class="[
-                    'col-start-1 row-span-1 flex h-full items-center gap-3 border-r border-b border-[#2A2F38] px-[18px]',
+                    'col-start-1 flex h-full items-center gap-3 border-r border-b border-[#2A2F38] px-[18px]',
                     rowClassName,
                     trackToneClassNames[track.tone]
                 ]"
@@ -178,91 +158,109 @@ const trackRows = computed(() =>
             </div>
 
             <div
-                :class="[
-                    'col-start-2 row-start-2 min-h-0 border-b border-[#2A2F38] bg-[#15171B]',
-                    timelineLayout.contentMinWidthClassName
-                ]"
+                class="col-start-2 row-start-1 row-span-5 min-w-0 overflow-x-auto overflow-y-hidden"
             >
-                <div class="flex h-full items-center gap-[15px] px-3">
+                <div
+                    :class="[
+                        'grid h-full',
+                        timelineLayout.contentRowsClassName,
+                        timelineLayout.contentMinWidthClassName
+                    ]"
+                >
                     <div
-                        v-for="clip in timelineVideoClips"
-                        :key="clip.label"
-                        :class="[
-                            'flex h-7 items-center gap-2 rounded-md border px-3',
-                            clip.widthClassName,
-                            clip.colorClassName
-                        ]"
+                        class="relative row-start-1 flex h-full border-b border-[#2A2F38] bg-[#121418]"
                     >
-                        <span class="h-4 w-1 rounded-full bg-white/70" />
-                        <span class="text-sm font-extrabold text-[#F5F7FA]">
-                            {{ clip.label }}
-                        </span>
-                        <div class="ml-auto flex gap-[3px]" aria-hidden="true">
+                        <div
+                            v-for="(tick, index) in timelineTicks"
+                            :key="tick"
+                            :class="[
+                                'relative border-l border-[#313741]',
+                                timelineLayout.tickWidthClassName,
+                                index === 0 ? 'border-l-0' : ''
+                            ]"
+                        >
                             <span
-                                v-for="index in decorativeThumbnailIndexes"
-                                :key="index"
-                                :class="[
-                                    'h-3 w-3 rounded',
-                                    index % 2 === 0
-                                        ? 'bg-white/15'
-                                        : 'bg-black/20'
-                                ]"
-                            />
+                                class="absolute top-2 left-2 font-['Geist_Mono'] text-[10px] text-[#6F7784]"
+                            >
+                                {{ tick }}
+                            </span>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <div
-                :class="[
-                    'col-start-2 row-start-3 min-h-0 border-b border-[#2A2F38] bg-[#101216]',
-                    timelineLayout.contentMinWidthClassName
-                ]"
-            >
-                <div class="flex h-full items-center gap-3 px-3">
                     <div
-                        v-for="clip in timelineAudioClips"
-                        :key="clip.label"
+                        v-for="{ track, rowClassName } in trackRows"
+                        :key="`${track.id}-content`"
+                        :data-timeline-track="track.id"
                         :class="[
-                            'flex h-[30px] items-center gap-3 rounded-lg border text-[13px] font-bold text-[#F5F7FA]',
-                            clip.widthClassName,
-                            audioToneClassNames[clip.tone]
+                            'min-h-0 border-b border-[#2A2F38]',
+                            rowClassName,
+                            trackContentClassNames[track.id]
                         ]"
                     >
-                        <span>{{ clip.label }}</span>
-                        <WaveformBars v-if="clip.bars" :bars="clip.bars" />
-                    </div>
-                </div>
-            </div>
-
-            <div
-                :class="[
-                    'col-start-2 row-start-4 min-h-0 border-b border-[#2A2F38] bg-[#15171B]',
-                    timelineLayout.contentMinWidthClassName
-                ]"
-            >
-                <div class="flex h-full items-center px-3 pt-3">
-                    <div
-                        class="flex h-7 w-[760px] items-center gap-3 rounded-lg border border-white/10 bg-[#6B471E] px-3"
-                    >
-                        <IconGlyph
-                            name="captions"
-                            class-name="h-4 w-4 text-[#F6B84B]"
-                        />
-                        <span class="text-[13px] font-bold">
-                            Whisper 字幕 · 自动断句 · 可逐字微调
-                        </span>
+                        <div class="flex h-full items-center gap-0">
+                            <div
+                                v-for="clip in timelineClipsByTrack[track.id]"
+                                :key="clip.label"
+                                :data-timeline-clip-kind="clip.kind"
+                                :data-duration-seconds="clip.durationSeconds"
+                                :data-width-px="clip.widthPx"
+                                :title="clip.caption ?? clip.label"
+                                :style="clipStyle(clip)"
+                                :class="[
+                                    'flex h-[28px] shrink-0 items-center gap-1.5 overflow-hidden rounded-md border px-2',
+                                    clip.colorClassName,
+                                    clipTextClassNames[clip.kind]
+                                ]"
+                            >
+                                <span
+                                    v-if="clip.kind === 'video'"
+                                    class="h-3 w-0.5 shrink-0 rounded-full bg-white/70"
+                                />
+                                <IconGlyph
+                                    v-if="clip.kind === 'subtitle'"
+                                    name="captions"
+                                    class-name="h-3 w-3 shrink-0 text-[#F6B84B]"
+                                />
+                                <IconGlyph
+                                    v-if="clip.kind === 'music'"
+                                    name="music"
+                                    class-name="h-3 w-3 shrink-0 text-[#8EA2FF]"
+                                />
+                                <span class="truncate">{{ clip.label }}</span>
+                                <WaveformBars
+                                    v-if="clip.bars"
+                                    :bars="clip.bars"
+                                    size="compact"
+                                />
+                                <div
+                                    v-if="clip.showThumbnails"
+                                    class="ml-auto flex gap-[2px]"
+                                    aria-hidden="true"
+                                >
+                                    <span
+                                        v-for="index in decorativeThumbnailIndexes"
+                                        :key="index"
+                                        :class="[
+                                            'h-2 w-2 rounded',
+                                            index % 2 === 0
+                                                ? 'bg-white/15'
+                                                : 'bg-black/20'
+                                        ]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="absolute top-[45px] left-[195px] h-[275px] w-5">
+        <div class="absolute top-[35px] left-[191px] h-[237px] w-5">
             <span
                 class="absolute top-0 left-[3px] h-[14px] w-[14px] rounded-full border-[3px] border-[#06372F] bg-[#F05F73]"
             />
             <span
-                class="absolute top-[7px] left-[9px] h-[268px] w-0.5 bg-[#F05F73]"
+                class="absolute top-[7px] left-[9px] h-[230px] w-0.5 bg-[#F05F73]"
             />
         </div>
     </section>

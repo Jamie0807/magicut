@@ -2,12 +2,11 @@ import type {
     AssistantTag,
     RailMode,
     StoryboardItem,
-    TimelineAudioClip,
-    TimelineHistoryAction,
+    TimelineClip,
     TimelineLayout,
     TimelineToolAction,
     TimelineTrack,
-    TimelineVideoClip
+    TimelineTrackKind
 } from '../types/editor-screen';
 
 export const editorHeader = {
@@ -23,50 +22,68 @@ export const editorHeader = {
 
 export const storyboardSummary = {
     title: '文稿字幕',
-    meta: '8 段分镜 · 00:30 · 当前 00:04-00:08'
+    meta: '9 段分镜 · 01:30 · 当前 00:08-00:20'
 };
 
 export const storyboardItems: StoryboardItem[] = [
     {
         title: '分镜 01',
-        time: '00:00-00:04',
-        body: '开场把原始素材拖入时间线，\n系统开始识别画面节奏。',
+        time: '00:00-00:10',
+        body: '开场提出问题，\n把学习焦虑拉到观众面前。',
         tone: 'default'
     },
     {
         title: '分镜 02',
-        time: '00:04-00:08',
-        body: 'AI 自动挑选高光片段，\n同步生成第一版字幕。',
+        time: '00:08-00:20',
+        body: '解释为什么不能直接跳进 AI，\n先补齐前端工程基础。',
         tone: 'current'
     },
     {
         title: '分镜 03',
-        time: '00:08-00:12',
-        body: '保留讲述者正面镜头，\n切入产品操作录屏。',
+        time: '00:20-00:30',
+        body: '展示第一个月路线，\n从组件、状态到接口联调。',
         tone: 'default'
     },
     {
         title: '分镜 04',
-        time: '00:12-00:17',
-        body: '字幕强调关键学习路线，\n画面进入轻微推近。',
+        time: '00:26-00:41',
+        body: '切到第二个月路线，\n把模型能力接入真实业务。',
         tone: 'default'
     },
     {
         title: '分镜 05',
-        time: '00:17-00:24',
-        body: '加入节奏点转场，\n背景音乐降低 20%。',
+        time: '00:41-00:50',
+        body: '拆解第三个月目标，\n强调工程化与可维护架构。',
         tone: 'default'
     },
     {
         title: '分镜 06',
-        time: '00:24-00:30',
-        body: '结尾给出行动建议，\n停留在导出预览状态。',
+        time: '00:50-01:00',
+        body: '加入案例对比，\n让学习路径更具体。',
+        tone: 'default'
+    },
+    {
+        title: '分镜 07',
+        time: '01:00-01:14',
+        body: '展示项目产出，\n从 Demo 过渡到作品集。',
+        tone: 'default'
+    },
+    {
+        title: '分镜 08',
+        time: '01:14-01:21',
+        body: '补充常见误区，\n避免工具堆叠式学习。',
+        tone: 'default'
+    },
+    {
+        title: '分镜 09',
+        time: '01:21-01:30',
+        body: '收尾总结，\n引导观众保存路线图。',
         tone: 'default'
     }
 ];
 
 export const previewPanel = {
-    timecode: '00:00:00 / 00:01:27',
+    timecode: '00:00:00 / 00:01:30',
     imageAlt: '当前口播短片的视频预览画面'
 };
 
@@ -114,47 +131,50 @@ export const railModes: RailMode[] = [
 
 export const timelinePanel = {
     title: '时间线',
-    timecode: '00:00:00 / 00:01:27'
+    timecode: '00:00:00 / 00:01:30'
 };
 
 export const timelineLayout: TimelineLayout = {
-    sectionHeightClassName: 'h-[320px]',
+    sectionHeightClassName: 'h-[272px]',
     contentGridClassName: 'grid-cols-[200px_minmax(0,1fr)]',
-    contentRowsClassName:
-        'grid-rows-[30px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]',
-    contentMinWidthClassName: 'min-w-[1721px]',
-    titleBarHeightClassName: 'h-[52px]'
+    contentRowsClassName: 'grid-rows-[30px_50px_50px_50px_50px]',
+    contentMinWidthClassName: 'min-w-[1728px] w-[1728px]',
+    titleBarHeightClassName: 'h-[42px]',
+    tickWidthClassName: 'w-[192px]'
 };
 
-export const timelineHistoryActions: TimelineHistoryAction[] = [
-    { label: '撤销', icon: 'undo-2' },
-    { label: '重做', icon: 'redo-2' }
-];
-
 export const timelineToolActions: TimelineToolAction[] = [
-    { label: '分割', icon: 'scissors', tone: 'default' },
     { label: '吸附', icon: 'magnet', tone: 'active' },
-    { label: '联动', icon: 'link', tone: 'default' },
-    { label: '显示波形', icon: 'audio-lines', tone: 'default' }
+    { label: '波纹', icon: 'audio-lines', tone: 'default' }
 ];
 
 export const timelineTracks: TimelineTrack[] = [
     {
+        id: 'video',
         icon: 'image',
         title: '视频 1',
-        meta: '5 个分镜',
+        meta: '9 个分镜',
         tone: 'primary'
     },
     {
+        id: 'voice',
         icon: 'mic',
         title: '配音',
-        meta: 'IndexTTS2 + 旁白',
+        meta: '9 段旁白',
         tone: 'muted'
     },
     {
+        id: 'subtitle',
         icon: 'captions',
         title: '字幕',
-        meta: 'Whisper 已对齐',
+        meta: '18 段字幕',
+        tone: 'primary'
+    },
+    {
+        id: 'music',
+        icon: 'music',
+        title: '音乐',
+        meta: 'Eutopia · 01:30',
         tone: 'primary'
     }
 ];
@@ -171,50 +191,90 @@ export const timelineTicks = [
     '01:20'
 ];
 
-export const timelineVideoClips: TimelineVideoClip[] = [
-    {
-        label: '分镜01',
-        widthClassName: 'w-[215px]',
-        colorClassName: 'bg-[#1F6158] border-[#25D0B1]'
-    },
-    {
-        label: '分镜02',
-        widthClassName: 'w-[196px]',
-        colorClassName: 'bg-[#294673] border-white/20'
-    },
-    {
-        label: '分镜03',
-        widthClassName: 'w-[194px]',
-        colorClassName: 'bg-[#503984] border-white/20'
-    },
-    {
-        label: '分镜04',
-        widthClassName: 'w-[205px]',
-        colorClassName: 'bg-[#74313E] border-white/20'
-    },
-    {
-        label: '分镜05',
-        widthClassName: 'w-[210px]',
-        colorClassName: 'bg-[#3D3F45] border-white/20'
-    }
+const timelineVideoClipColors = [
+    'bg-[#1F6158] border-[#25D0B1]',
+    'bg-[#294673] border-white/20',
+    'bg-[#503984] border-white/20',
+    'bg-[#74313E] border-white/20',
+    'bg-[#3D3F45] border-white/20',
+    'bg-[#315B49] border-white/20',
+    'bg-[#4D5270] border-white/20',
+    'bg-[#6A4A32] border-white/20',
+    'bg-[#2E5166] border-white/20'
 ];
 
-export const timelineAudioClips: TimelineAudioClip[] = [
-    {
-        label: 'IndexTTS2 口播',
-        widthClassName: 'w-[420px]',
-        tone: 'voice',
-        bars: 18
-    },
-    {
-        label: '停顿',
-        widthClassName: 'w-[66px]',
-        tone: 'pause'
-    },
-    {
-        label: '旁白 02',
-        widthClassName: 'w-[330px]',
-        tone: 'voice',
-        bars: 13
-    }
-];
+const timelineScenes = [
+    { durationSeconds: 8, widthPx: 154 },
+    { durationSeconds: 12, widthPx: 230 },
+    { durationSeconds: 6, widthPx: 115 },
+    { durationSeconds: 15, widthPx: 288 },
+    { durationSeconds: 9, widthPx: 173 },
+    { durationSeconds: 10, widthPx: 192 },
+    { durationSeconds: 14, widthPx: 269 },
+    { durationSeconds: 7, widthPx: 134 },
+    { durationSeconds: 9, widthPx: 173 }
+].map((scene, index) => ({
+    ...scene,
+    colorClassName:
+        timelineVideoClipColors[index] ?? timelineVideoClipColors[0],
+    number: String(index + 1).padStart(2, '0'),
+    subtitleSegments: storyboardItems[index]?.body.split('\n') ?? []
+}));
+
+const splitWidthBySegment = ({
+    segmentCount,
+    segmentIndex,
+    widthPx
+}: {
+    segmentCount: number;
+    segmentIndex: number;
+    widthPx: number;
+}) => {
+    const baseWidth = Math.floor(widthPx / segmentCount);
+    const remainder = widthPx % segmentCount;
+    return baseWidth + (segmentIndex < remainder ? 1 : 0);
+};
+
+export const timelineClipsByTrack: Record<TimelineTrackKind, TimelineClip[]> = {
+    video: timelineScenes.map((scene) => ({
+        kind: 'video',
+        label: `分镜${scene.number}`,
+        widthPx: scene.widthPx,
+        durationSeconds: scene.durationSeconds,
+        colorClassName: scene.colorClassName,
+        showThumbnails: true
+    })),
+    voice: timelineScenes.map((scene) => ({
+        kind: 'voice',
+        label: `旁白${scene.number}`,
+        widthPx: scene.widthPx,
+        durationSeconds: scene.durationSeconds,
+        colorClassName: 'bg-[#245A34] border-white/10',
+        bars: 12
+    })),
+    subtitle: timelineScenes.flatMap((scene) =>
+        scene.subtitleSegments.map((subtitle, segmentIndex) => ({
+            kind: 'subtitle',
+            label: `字幕${scene.number}-${String(segmentIndex + 1).padStart(2, '0')}`,
+            widthPx: splitWidthBySegment({
+                segmentCount: scene.subtitleSegments.length,
+                segmentIndex,
+                widthPx: scene.widthPx
+            }),
+            durationSeconds:
+                scene.durationSeconds / scene.subtitleSegments.length,
+            colorClassName: 'bg-[#6B471E] border-white/10',
+            caption: subtitle
+        }))
+    ),
+    music: [
+        {
+            kind: 'music',
+            label: 'Eutopia · 全片背景音乐',
+            widthPx: 1728,
+            durationSeconds: 90,
+            colorClassName: 'bg-[#263A66] border-[#5E7BFF]/50',
+            bars: 32
+        }
+    ]
+};

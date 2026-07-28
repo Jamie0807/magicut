@@ -1,5 +1,7 @@
 import type { ConfigMode } from './config';
 
+export type { ConfigMode } from './config';
+
 export type EditorIconName =
     | 'arrow-down'
     | 'arrow-up'
@@ -55,36 +57,29 @@ export type RailMode = {
 };
 
 export type TimelineTrack = {
-    icon: Extract<EditorIconName, 'image' | 'mic' | 'captions'>;
+    id: TimelineTrackKind;
+    icon: Extract<EditorIconName, 'image' | 'mic' | 'captions' | 'music'>;
     title: string;
     meta: string;
     tone: 'primary' | 'muted';
 };
 
-export type TimelineHistoryAction = {
-    label: string;
-    icon: Extract<EditorIconName, 'undo-2' | 'redo-2'>;
-};
+export type TimelineTrackKind = 'video' | 'voice' | 'subtitle' | 'music';
 
 export type TimelineToolAction = {
     label: string;
-    icon: Extract<
-        EditorIconName,
-        'scissors' | 'magnet' | 'link' | 'audio-lines'
-    >;
+    icon: Extract<EditorIconName, 'magnet' | 'audio-lines'>;
     tone: 'default' | 'active';
 };
 
-export type TimelineVideoClip = {
+export type TimelineClip = {
+    kind: TimelineTrackKind;
     label: string;
-    widthClassName: string;
+    widthPx: number;
+    durationSeconds: number;
     colorClassName: string;
-};
-
-export type TimelineAudioClip = {
-    label: string;
-    widthClassName: string;
-    tone: 'voice' | 'pause';
+    caption?: string;
+    showThumbnails?: boolean;
     bars?: number;
 };
 
@@ -94,4 +89,5 @@ export type TimelineLayout = {
     contentRowsClassName: string;
     contentMinWidthClassName: string;
     titleBarHeightClassName: string;
+    tickWidthClassName: string;
 };
