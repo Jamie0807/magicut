@@ -25,6 +25,7 @@ pids
 # Dependency directories
 node_modules/
 jspm_packages/
+.pnpm-store/
 .dependencygraph
 
 # TypeScript cache
@@ -45,6 +46,7 @@ jspm_packages/
 # Output
 coverage
 *.lcov
+**/dist/
 .next
 .nuxt
 .vuepress/dist
