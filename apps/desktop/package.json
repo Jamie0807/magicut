@@ -6,6 +6,7 @@
     "description": "智能剪辑平台桌面端",
     "main": ".vite/build/main.js",
     "scripts": {
+        "prestart": "node scripts/ensure-electron-installed.mjs",
         "start": "electron-forge start",
         "package": "pnpm run package:mac && pnpm run package:win",
         "package:mac": "electron-forge package --platform darwin",
