@@ -55,6 +55,7 @@ coverage
 .dynamodb/
 .webpack/
 .vite/
+.vite-node/
 out/
 
 /temp

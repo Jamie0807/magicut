@@ -9,7 +9,8 @@ const ignoredPaths = [
     '**/*/build/**/*',
     '**/*/es/**/*',
     '**/*/dist/**/*',
-    '**/.vite/**/*'
+    '**/.vite/**/*',
+    '**/.vite-node/**/*'
 ];
 
 const typedTsFiles = tseslint.config({
