@@ -90,4 +90,34 @@ export type TimelineLayout = {
     contentMinWidthClassName: string;
     titleBarHeightClassName: string;
     tickWidthClassName: string;
+    contentWidthPx?: number;
+    tickWidthPx?: number;
+};
+
+export type StoryboardSummary = {
+    title: string;
+    meta: string;
+};
+
+export type StoryboardData = {
+    items: StoryboardItem[];
+    summary: StoryboardSummary;
+};
+
+export type TimelinePanelSummary = {
+    timecode: string;
+    title: string;
+};
+
+export type TimelineData = {
+    clipsByTrack: Record<TimelineTrackKind, TimelineClip[]>;
+    layout: TimelineLayout;
+    panel: TimelinePanelSummary;
+    ticks: string[];
+    tracks: TimelineTrack[];
+};
+
+export type EditorScreenData = {
+    storyboard: StoryboardData;
+    timeline: TimelineData;
 };

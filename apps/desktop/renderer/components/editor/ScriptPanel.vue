@@ -5,7 +5,17 @@ import {
     storyboardItems,
     storyboardSummary
 } from '../../constants/editor-screen';
-import type { StoryboardItem } from '../../types/editor-screen';
+import type { StoryboardData, StoryboardItem } from '../../types/editor-screen';
+
+const fallbackStoryboardData: StoryboardData = {
+    items: storyboardItems,
+    summary: storyboardSummary
+};
+
+const props = defineProps<{
+    data?: StoryboardData;
+}>();
+const storyboardData = computed(() => props.data ?? fallbackStoryboardData);
 
 const cardToneClassNames: Record<StoryboardItem['tone'], string> = {
     current:
@@ -24,7 +34,7 @@ const metaToneClassNames: Record<StoryboardItem['tone'], string> = {
 };
 
 const cards = computed(() =>
-    storyboardItems.map((item) => ({
+    storyboardData.value.items.map((item) => ({
         item,
         key: `${item.title}-${item.time}-${item.body}`
     }))
@@ -37,12 +47,12 @@ const cards = computed(() =>
     >
         <div class="mb-3 grid gap-1.5">
             <h2 class="text-xl leading-[1.1] font-bold">
-                {{ storyboardSummary.title }}
+                {{ storyboardData.summary.title }}
             </h2>
             <p
                 class="font-['Geist'] text-[11px] leading-[1.2] font-medium text-[#6F7784]"
             >
-                {{ storyboardSummary.meta }}
+                {{ storyboardData.summary.meta }}
             </p>
         </div>
         <div class="grid gap-2">

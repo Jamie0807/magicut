@@ -12,6 +12,7 @@ import {
 } from '../../constants/editor-screen';
 import type {
     TimelineClip,
+    TimelineData,
     TimelineToolAction,
     TimelineTrack,
     TimelineTrackKind
@@ -56,8 +57,21 @@ const timelineTrackRowStartClassNames = [
     'row-start-5'
 ] as const;
 
+const fallbackTimelineData: TimelineData = {
+    clipsByTrack: timelineClipsByTrack,
+    layout: timelineLayout,
+    panel: timelinePanel,
+    ticks: timelineTicks,
+    tracks: timelineTracks
+};
+
+const props = defineProps<{
+    data?: TimelineData;
+}>();
+const timelineData = computed(() => props.data ?? fallbackTimelineData);
+
 const trackRows = computed(() =>
-    timelineTracks.map((track, index) => ({
+    timelineData.value.tracks.map((track, index) => ({
         track,
         rowClassName: timelineTrackRowStartClassNames[index] ?? 'row-start-2'
     }))
@@ -66,28 +80,49 @@ const trackRows = computed(() =>
 const clipStyle = (clip: TimelineClip): CSSProperties => ({
     width: `${clip.widthPx}px`
 });
+
+const timelineContentStyle = computed<CSSProperties | undefined>(() => {
+    if (!timelineData.value.layout.contentWidthPx) {
+        return undefined;
+    }
+
+    return {
+        minWidth: `${timelineData.value.layout.contentWidthPx}px`,
+        width: `${timelineData.value.layout.contentWidthPx}px`
+    };
+});
+
+const tickStyle = computed<CSSProperties | undefined>(() => {
+    if (!timelineData.value.layout.tickWidthPx) {
+        return undefined;
+    }
+
+    return {
+        width: `${timelineData.value.layout.tickWidthPx}px`
+    };
+});
 </script>
 
 <template>
     <section
         :class="[
             'relative flex min-h-0 flex-col overflow-hidden border-t border-[#2A2F38] bg-[#121418]',
-            timelineLayout.sectionHeightClassName
+            timelineData.layout.sectionHeightClassName
         ]"
         aria-label="时间线"
     >
         <div
             :class="[
                 'flex h-[42px] w-full items-center justify-between border-b border-[#2A2F38] bg-[#15171B] px-3 py-[6px]',
-                timelineLayout.titleBarHeightClassName
+                timelineData.layout.titleBarHeightClassName
             ]"
         >
             <div class="flex items-center gap-4">
                 <h2 class="font-sm">
-                    {{ timelinePanel.title }}
+                    {{ timelineData.panel.title }}
                 </h2>
                 <span class="font-['Geist_Mono'] text-xs text-[#A9AFBA]">
-                    {{ timelinePanel.timecode }}
+                    {{ timelineData.panel.timecode }}
                 </span>
             </div>
             <div class="flex items-center gap-2.5">
@@ -126,8 +161,8 @@ const clipStyle = (clip: TimelineClip): CSSProperties => ({
         <div
             :class="[
                 'grid min-h-0 w-full flex-1',
-                timelineLayout.contentGridClassName,
-                timelineLayout.contentRowsClassName
+                timelineData.layout.contentGridClassName,
+                timelineData.layout.contentRowsClassName
             ]"
         >
             <div
@@ -163,21 +198,23 @@ const clipStyle = (clip: TimelineClip): CSSProperties => ({
                 <div
                     :class="[
                         'grid h-full',
-                        timelineLayout.contentRowsClassName,
-                        timelineLayout.contentMinWidthClassName
+                        timelineData.layout.contentRowsClassName,
+                        timelineData.layout.contentMinWidthClassName
                     ]"
+                    :style="timelineContentStyle"
                 >
                     <div
                         class="relative row-start-1 flex h-full border-b border-[#2A2F38] bg-[#121418]"
                     >
                         <div
-                            v-for="(tick, index) in timelineTicks"
+                            v-for="(tick, index) in timelineData.ticks"
                             :key="tick"
                             :class="[
                                 'relative border-l border-[#313741]',
-                                timelineLayout.tickWidthClassName,
+                                timelineData.layout.tickWidthClassName,
                                 index === 0 ? 'border-l-0' : ''
                             ]"
+                            :style="tickStyle"
                         >
                             <span
                                 class="absolute top-2 left-2 font-['Geist_Mono'] text-[10px] text-[#6F7784]"
@@ -199,7 +236,9 @@ const clipStyle = (clip: TimelineClip): CSSProperties => ({
                     >
                         <div class="flex h-full items-center gap-0">
                             <div
-                                v-for="clip in timelineClipsByTrack[track.id]"
+                                v-for="clip in timelineData.clipsByTrack[
+                                    track.id
+                                ]"
                                 :key="clip.label"
                                 :data-timeline-clip-kind="clip.kind"
                                 :data-duration-seconds="clip.durationSeconds"

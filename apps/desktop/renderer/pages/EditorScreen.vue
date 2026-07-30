@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue';
+import { computed, shallowRef } from 'vue';
+
+import type { VideoProject } from '@magicut/video-project';
 
 import ConfigPanel from '../components/config/ConfigPanel.vue';
 import EditorHeader from '../components/editor/EditorHeader.vue';
@@ -9,9 +11,15 @@ import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
+import { createEditorScreenData } from '../mappers/video-project-to-editor';
 import type { ConfigMode } from '../types/config';
 
+const props = defineProps<{
+    project?: VideoProject;
+}>();
+
 const activeMode = shallowRef<ConfigMode>(editorConfigMode);
+const editorData = computed(() => createEditorScreenData(props.project));
 </script>
 
 <template>
@@ -24,7 +32,7 @@ const activeMode = shallowRef<ConfigMode>(editorConfigMode);
             <section
                 class="grid min-h-0 flex-1 grid-cols-[300px_minmax(420px,1fr)_320px_59px]"
             >
-                <ScriptPanel />
+                <ScriptPanel :data="editorData.storyboard" />
                 <PreviewPanel />
                 <ConfigPanel :mode="activeMode" />
                 <ModeRail
@@ -32,7 +40,7 @@ const activeMode = shallowRef<ConfigMode>(editorConfigMode);
                     @mode-change="activeMode = $event"
                 />
             </section>
-            <TimelinePanel />
+            <TimelinePanel :data="editorData.timeline" />
         </div>
     </main>
 </template>
