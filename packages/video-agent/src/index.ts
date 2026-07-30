@@ -1,5 +1,25 @@
 export type { AgentEnv, AgentEnvIssue } from './config/load-agent-env';
 export { AgentEnvValidationError, loadAgentEnv } from './config/load-agent-env';
+export type {
+    AgentRunEvent,
+    AgentRunEventBase
+} from './events/agent-run-event';
+export {
+    createSequencedEventEmitter,
+    redactSecrets,
+    serializeError
+} from './events/event-emitter';
+export type {
+    VideoCreationGraphResult,
+    VideoCreationGraphRunner
+} from './graph/create-video-creation-graph';
+export { createVideoCreationGraph } from './graph/create-video-creation-graph';
+export type {
+    SceneApprovalRequest,
+    SceneApprovalResume,
+    VideoCreationGraphState
+} from './graph/state';
+export { VideoCreationStateAnnotation } from './graph/state';
 export type { ExtractedKeyframe } from './media/extract-keyframes';
 export { extractKeyframes } from './media/extract-keyframes';
 export type { MediaMetadata } from './media/probe-media';
@@ -54,3 +74,12 @@ export type { ModelProvider, TextEmbedding } from './providers/model-provider';
 export type { AgentDatabase } from './storage/create-agent-database';
 export { createAgentDatabase } from './storage/create-agent-database';
 export { agentDatabaseSchemaStatements } from './storage/schema.sql';
+export type {
+    AssetAnalysis,
+    AssetMatchResult,
+    ProjectValidationResult,
+    SavedVideoProject,
+    VideoAgentTools,
+    VideoCreationInput,
+    VoiceSynthesisResult
+} from './tools/video-agent-tools';

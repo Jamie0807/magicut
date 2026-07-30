@@ -8,6 +8,12 @@ export class VideoProjectValidationError extends Error {
     }
 }
 
+const formatIssue = (issue: { message: string; path: PropertyKey[] }) => {
+    const path = issue.path.map(String).join('.') || 'project';
+
+    return `${path}: ${issue.message}`;
+};
+
 export const validateVideoProject = (
     value: unknown
 ): VideoProjectValidationResult => {
@@ -15,7 +21,7 @@ export const validateVideoProject = (
 
     if (result.success === false) {
         return {
-            issues: result.error.issues.map((issue) => issue.message),
+            issues: result.error.issues.map(formatIssue),
             success: false
         };
     }
