@@ -1,3 +1,4 @@
+export { probeAudioDuration } from './audio/probe-audio-duration';
 export type { AgentEnv, AgentEnvIssue } from './config/load-agent-env';
 export { AgentEnvValidationError, loadAgentEnv } from './config/load-agent-env';
 export type {
@@ -71,6 +72,30 @@ export {
     ModelProviderSchemaError
 } from './providers/ark-chat-model-provider';
 export type { ModelProvider, TextEmbedding } from './providers/model-provider';
+export {
+    CompressionType,
+    createTtsMessageFrame,
+    EventType,
+    fullClientRequest,
+    MsgType,
+    MsgTypeFlag,
+    parseTtsMessageFrame,
+    receiveMessage,
+    SerializationType,
+    type TtsProtocolMessage,
+    type TtsProtocolSocket
+} from './providers/tts-protocol';
+export type {
+    TtsProvider,
+    TtsProviderEvent,
+    TtsSynthesisInput,
+    TtsSynthesisResult
+} from './providers/tts-provider';
+export {
+    createWsTtsProtocolSocket,
+    VolcengineTtsProvider,
+    VolcengineTtsProviderError
+} from './providers/volcengine-tts-provider';
 export type { AgentDatabase } from './storage/create-agent-database';
 export { createAgentDatabase } from './storage/create-agent-database';
 export { agentDatabaseSchemaStatements } from './storage/schema.sql';
