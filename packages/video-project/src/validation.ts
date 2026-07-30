@@ -13,7 +13,7 @@ export const validateVideoProject = (
 ): VideoProjectValidationResult => {
     const result = VideoProjectSchema.safeParse(value);
 
-    if (!result.success) {
+    if (result.success === false) {
         return {
             issues: result.error.issues.map((issue) => issue.message),
             success: false
@@ -29,7 +29,7 @@ export const validateVideoProject = (
 export const assertVideoProject = (value: unknown) => {
     const result = validateVideoProject(value);
 
-    if (!result.success) {
+    if (result.success === false) {
         throw new VideoProjectValidationError(result.issues);
     }
 

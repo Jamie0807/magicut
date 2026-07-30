@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
 
+import { registerVideoProjectIpc } from './video-project-ipc';
 import { createMainWindowOptions } from './window-options';
 
 if (started) {
@@ -26,6 +27,7 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+    registerVideoProjectIpc({ ipcMain });
     createWindow();
 
     app.on('activate', () => {

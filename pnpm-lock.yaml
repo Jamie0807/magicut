@@ -53,6 +53,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@magicut/video-project':
+        specifier: workspace:*
+        version: link:../../packages/video-project
       electron-squirrel-startup:
         specifier: 1.0.1
         version: 1.0.1
