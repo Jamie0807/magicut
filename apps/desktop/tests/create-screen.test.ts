@@ -168,6 +168,27 @@ describe('CreateScreen', () => {
         expect(html).not.toMatch(forbiddenBrandPattern);
     });
 
+    it('defines voice_type for every create voice option', () => {
+        expect(createPageContent.voiceOptions).toEqual([
+            expect.objectContaining({
+                label: '温婉学姐',
+                voiceType: 'zh_female_wenroushunv_uranus_bigtts'
+            }),
+            expect.objectContaining({
+                label: '新闻播报',
+                voiceType: 'zh_male_cixingjieshuonan_uranus_bigtts'
+            }),
+            expect.objectContaining({
+                label: '沉稳男声',
+                voiceType: 'zh_male_gaolengchenwen_uranus_bigtts'
+            }),
+            expect.objectContaining({
+                label: '活力讲解',
+                voiceType: 'zh_male_huolixiaoge_uranus_bigtts'
+            })
+        ]);
+    });
+
     it('keeps desktop source files free of previous project brand terms', () => {
         const sourceFiles = [
             ...collectSourceFiles(resolve(desktopDirectory, 'renderer')),

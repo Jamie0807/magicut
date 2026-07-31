@@ -1,3 +1,4 @@
+import { videoAgentVoiceOptions } from '../../shared/video-agent-voices';
 import type { CreatePageContent } from '../types/create';
 
 import { workspaceBrand } from './workspace';
@@ -24,23 +25,6 @@ export const createPageContent = {
     placeholder: '输入/粘贴视频文稿，为你生成精彩视频',
     maxLength: 10000,
     voiceLabelPrefix: '配音',
-    voiceOptions: [
-        {
-            label: '温婉学姐',
-            description: '柔和亲切 · 适合知识口播'
-        },
-        {
-            label: '新闻播报',
-            description: '清晰正式 · 适合资讯解说'
-        },
-        {
-            label: '沉稳男声',
-            description: '低沉可靠 · 适合商业叙事'
-        },
-        {
-            label: '活力讲解',
-            description: '明快有力 · 适合教程种草'
-        }
-    ],
+    voiceOptions: [...videoAgentVoiceOptions],
     actionLabel: '创建'
 } satisfies CreatePageContent;

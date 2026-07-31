@@ -38,6 +38,9 @@ export type VideoProjectStore = {
     readProject: (input: {
         filePath: string;
     }) => Promise<VideoProjectOperationResult<VideoProject>>;
+    readProjectById: (input: {
+        projectId: string;
+    }) => Promise<VideoProjectOperationResult<VideoProject>>;
     saveProject: (input: {
         filePath: string;
         project: unknown;
@@ -141,6 +144,33 @@ export const createVideoProjectStore = ({
         }
     };
 
+    const readProject: VideoProjectStore['readProject'] = async ({
+        filePath
+    }) => {
+        try {
+            const projectContent = await readFile(filePath, 'utf8');
+            const project = JSON.parse(projectContent) as unknown;
+
+            return validateProject({ project });
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                return failure(
+                    toError({
+                        code: 'VALIDATION_FAILED',
+                        error
+                    })
+                );
+            }
+
+            return failure(
+                toError({
+                    code: 'READ_FAILED',
+                    error
+                })
+            );
+        }
+    };
+
     return {
         createProject: async ({ project }) => {
             const result = validateProject({ project });
@@ -170,29 +200,14 @@ export const createVideoProjectStore = ({
                 success: true
             };
         },
-        readProject: async ({ filePath }) => {
-            try {
-                const projectContent = await readFile(filePath, 'utf8');
-                const project = JSON.parse(projectContent) as unknown;
+        readProject,
+        readProjectById: async ({ projectId }) => {
+            const filePath = path.join(
+                projectsDirectory,
+                `${projectId.replace(/[^a-zA-Z0-9_-]/g, '-')}.magicut.json`
+            );
 
-                return validateProject({ project });
-            } catch (error) {
-                if (error instanceof SyntaxError) {
-                    return failure(
-                        toError({
-                            code: 'VALIDATION_FAILED',
-                            error
-                        })
-                    );
-                }
-
-                return failure(
-                    toError({
-                        code: 'READ_FAILED',
-                        error
-                    })
-                );
-            }
+            return readProject({ filePath });
         },
         saveProject,
         validateProject

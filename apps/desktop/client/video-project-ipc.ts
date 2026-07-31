@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import type { VideoProject } from '@magicut/video-project';
 
-import { videoProjectIpcChannels } from './video-project-channels';
+import { videoProjectIpcChannels } from '../shared/video-project-channels';
+
 import {
     createVideoProjectStore,
     type VideoProjectFileResult,
@@ -18,6 +19,10 @@ export type VideoProjectCreateInput = {
 
 export type VideoProjectReadInput = {
     filePath: string;
+};
+
+export type VideoProjectReadByIdInput = {
+    projectId: string;
 };
 
 export type VideoProjectSaveInput = {
@@ -59,6 +64,14 @@ export const registerVideoProjectIpc = ({
     );
 
     ipcMain.handle(
+        videoProjectIpcChannels.readById,
+        async (_event, input: VideoProjectReadByIdInput) =>
+            store.readProjectById({
+                projectId: input.projectId
+            })
+    );
+
+    ipcMain.handle(
         videoProjectIpcChannels.save,
         async (_event, input: VideoProjectSaveInput) =>
             store.saveProject({
@@ -82,6 +95,9 @@ export type RendererVideoProjectApi = {
     ) => Promise<VideoProjectOperationResult<VideoProjectFileResult>>;
     read: (
         filePath: string
+    ) => Promise<VideoProjectOperationResult<VideoProject>>;
+    readById: (
+        projectId: string
     ) => Promise<VideoProjectOperationResult<VideoProject>>;
     save: (input: {
         filePath: string;

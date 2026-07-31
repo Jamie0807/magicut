@@ -1,12 +1,32 @@
 <script setup lang="ts">
-import type { CreatePageContent } from '../../types/create';
+import type { DesktopAgentRunEvent } from '../../../shared/video-agent';
+import type {
+    CreateAgentSubmitInput,
+    CreatePageContent
+} from '../../types/create';
 import SoftAurora from '../reactbits/SoftAurora/SoftAurora.vue';
 
+import CreateAgentProgress from './CreateAgentProgress.vue';
 import CreateHero from './CreateHero.vue';
 import CreateInputPanel from './CreateInputPanel.vue';
 
-defineProps<{
-    content: CreatePageContent;
+withDefaults(
+    defineProps<{
+        agentEvents?: DesktopAgentRunEvent[];
+        content: CreatePageContent;
+        isAgentBusy?: boolean;
+    }>(),
+    {
+        agentEvents: () => [],
+        isAgentBusy: false
+    }
+);
+
+const emit = defineEmits<{
+    agentApprove: [];
+    agentCancel: [];
+    agentRetry: [];
+    agentSubmit: [input: CreateAgentSubmitInput];
 }>();
 </script>
 
@@ -35,9 +55,23 @@ defineProps<{
                 <CreateHero :content="content" />
             </div>
             <div
-                class="absolute top-[362px] left-[129px] w-[1340px] max-w-[calc(100%-258px)]"
+                class="absolute top-[238px] left-[460px] z-20 w-[650px] max-w-[calc(100%-920px)]"
             >
-                <CreateInputPanel :content="content" />
+                <CreateAgentProgress
+                    :events="agentEvents"
+                    @approve="emit('agentApprove')"
+                    @cancel="emit('agentCancel')"
+                    @retry="emit('agentRetry')"
+                />
+            </div>
+            <div
+                class="absolute top-[362px] left-[129px] z-10 w-[1340px] max-w-[calc(100%-258px)]"
+            >
+                <CreateInputPanel
+                    :content="content"
+                    :disabled="isAgentBusy"
+                    @submit="emit('agentSubmit', $event)"
+                />
             </div>
         </div>
     </section>

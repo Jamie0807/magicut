@@ -53,6 +53,31 @@ describe('video project store', () => {
         }
     });
 
+    it('reads a saved project by project id', async () => {
+        const project = {
+            ...sampleVideoProject,
+            project: {
+                ...sampleVideoProject.project,
+                id: 'project_from_langgraph_runner'
+            }
+        };
+
+        const created = await store.createProject({ project });
+        const read = await store.readProjectById({
+            projectId: project.project.id
+        });
+
+        expect(created).toMatchObject({ success: true });
+        expect(read).toMatchObject({
+            data: {
+                project: {
+                    id: 'project_from_langgraph_runner'
+                }
+            },
+            success: true
+        });
+    });
+
     it('saves a valid project json over an existing file', async () => {
         const created = await store.createProject({
             project: sampleVideoProject

@@ -1,6 +1,34 @@
 interface Window {
     magicutAPI: {
         ping: () => Promise<{ success: boolean }>;
+        videoAgent: {
+            approve: (
+                input: import('./shared/video-agent').VideoAgentApprovalInput
+            ) => Promise<
+                import('./shared/video-agent').VideoAgentOperationResult<
+                    import('./shared/video-agent').VideoAgentResultData
+                >
+            >;
+            cancel: (
+                input: import('./shared/video-agent').VideoAgentCancelInput
+            ) => Promise<
+                import('./shared/video-agent').VideoAgentOperationResult<
+                    import('./shared/video-agent').VideoAgentResultData
+                >
+            >;
+            onEvent: (
+                listener: (
+                    event: import('./shared/video-agent').DesktopAgentRunEvent
+                ) => void
+            ) => () => void;
+            start: (
+                input: import('./shared/video-agent').VideoAgentStartInput
+            ) => Promise<
+                import('./shared/video-agent').VideoAgentOperationResult<
+                    import('./shared/video-agent').VideoAgentResultData
+                >
+            >;
+        };
         videoProject: {
             create: (
                 project: import('@magicut/video-project').VideoProject
@@ -11,6 +39,13 @@ interface Window {
             >;
             read: (
                 filePath: string
+            ) => Promise<
+                import('./client/video-project-store').VideoProjectOperationResult<
+                    import('@magicut/video-project').VideoProject
+                >
+            >;
+            readById: (
+                projectId: string
             ) => Promise<
                 import('./client/video-project-store').VideoProjectOperationResult<
                     import('@magicut/video-project').VideoProject

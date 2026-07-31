@@ -2,7 +2,14 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
 
-import { registerVideoProjectIpc } from './video-project-ipc';
+import {
+    createLangGraphVideoAgentController,
+    registerVideoAgentIpc
+} from './video-agent-ipc';
+import {
+    createDefaultVideoProjectStore,
+    registerVideoProjectIpc
+} from './video-project-ipc';
 import { createMainWindowOptions } from './window-options';
 
 if (started) {
@@ -27,7 +34,17 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
-    registerVideoProjectIpc({ ipcMain });
+    const videoProjectStore = createDefaultVideoProjectStore();
+    const agentRunDirectory = path.join(app.getPath('userData'), 'agent-runs');
+
+    registerVideoProjectIpc({ ipcMain, store: videoProjectStore });
+    registerVideoAgentIpc({
+        controller: createLangGraphVideoAgentController({
+            store: videoProjectStore,
+            voiceOutputDirectory: path.join(agentRunDirectory, 'voices')
+        }),
+        ipcMain
+    });
     createWindow();
 
     app.on('activate', () => {

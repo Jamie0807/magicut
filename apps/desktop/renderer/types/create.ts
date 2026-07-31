@@ -9,6 +9,7 @@ export type CreateModeOption = {
 export type CreateVoiceOption = {
     label: string;
     description: string;
+    voiceType: string;
 };
 
 export type CreatePageContent = {
@@ -22,4 +23,11 @@ export type CreatePageContent = {
     voiceLabelPrefix: string;
     voiceOptions: CreateVoiceOption[];
     actionLabel: string;
+};
+
+export type CreateAgentSubmitInput = {
+    prompt: string;
+    selectedVoice: string;
+    selectedVoiceType: string;
+    sourceAssetDirectory: string;
 };

@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue';
 
+import {
+    defaultVideoAgentCanvas,
+    type DesktopAgentRunEvent
+} from '../../shared/video-agent';
 import CreateMainContent from '../components/create/CreateMainContent.vue';
 import WorkspaceProjectsContent from '../components/workspace/WorkspaceProjectsContent.vue';
 import WorkspaceSidebar from '../components/workspace/WorkspaceSidebar.vue';
@@ -12,6 +16,7 @@ import {
     workspaceHeader,
     workspaceProjects
 } from '../constants/workspace';
+import type { CreateAgentSubmitInput } from '../types/create';
 import type { WorkspaceView } from '../types/workspace';
 
 const props = withDefaults(
@@ -24,9 +29,29 @@ const props = withDefaults(
 );
 
 const activeView = shallowRef<WorkspaceView>(props.initialView);
+const agentEvents = shallowRef<DesktopAgentRunEvent[]>([]);
+const activeAgentRunId = shallowRef<string | undefined>();
+const lastAgentSubmitInput = shallowRef<CreateAgentSubmitInput | undefined>();
+let unsubscribeAgentEvents: (() => void) | undefined;
 const workspaceNavItems = computed(() =>
     getWorkspaceNavItems(activeView.value)
 );
+const latestAgentEvent = computed(() =>
+    [...agentEvents.value]
+        .sort((first, second) => first.sequence - second.sequence)
+        .at(-1)
+);
+const isAgentBusy = computed(() => {
+    const event = latestAgentEvent.value;
+
+    return (
+        event?.type === 'run.started' ||
+        event?.type === 'node.started' ||
+        event?.type === 'node.completed' ||
+        event?.type === 'model.delta' ||
+        event?.type === 'approval.required'
+    );
+});
 
 const viewClassName = (view: WorkspaceView) => [
     'absolute inset-0 min-w-0 transition-opacity duration-200',
@@ -39,12 +64,103 @@ const selectView = (view: WorkspaceView) => {
     activeView.value = view;
 };
 
+const appendAgentEvent = (event: DesktopAgentRunEvent) => {
+    agentEvents.value = [...agentEvents.value, event];
+
+    if (event.type === 'run.started') {
+        activeAgentRunId.value = event.runId;
+    }
+};
+
+const appendLocalAgentFailure = (message: string) => {
+    agentEvents.value = [
+        ...agentEvents.value,
+        {
+            createdAt: new Date().toISOString(),
+            error: message,
+            runId: `local_${Date.now()}`,
+            sequence: agentEvents.value.length + 1,
+            type: 'run.failed'
+        }
+    ];
+};
+
+const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
+    activeView.value = 'create';
+    agentEvents.value = [];
+    lastAgentSubmitInput.value = input;
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoAgent) {
+        appendLocalAgentFailure('智能体接口尚未就绪');
+        return;
+    }
+
+    const result = await window.magicutAPI.videoAgent.start({
+        ...input,
+        canvas: defaultVideoAgentCanvas
+    });
+
+    if (result.success === false) {
+        appendLocalAgentFailure(result.error.message);
+        return;
+    }
+
+    activeAgentRunId.value = result.data.runId;
+};
+
+const getLatestAgentRunId = () =>
+    latestAgentEvent.value?.runId ?? activeAgentRunId.value;
+
+const handleAgentApprove = async () => {
+    const runId = getLatestAgentRunId();
+
+    if (!runId || typeof window === 'undefined') return;
+
+    const result = await window.magicutAPI.videoAgent.approve({
+        approved: true,
+        runId
+    });
+
+    if (result.success === false) {
+        appendLocalAgentFailure(result.error.message);
+    }
+};
+
+const handleAgentCancel = async () => {
+    const runId = getLatestAgentRunId();
+
+    if (!runId || typeof window === 'undefined') return;
+
+    const result = await window.magicutAPI.videoAgent.cancel({ runId });
+
+    if (result.success === false) {
+        appendLocalAgentFailure(result.error.message);
+    }
+};
+
+const handleAgentRetry = () => {
+    if (!lastAgentSubmitInput.value) return;
+
+    void handleAgentSubmit(lastAgentSubmitInput.value);
+};
+
 watch(
     () => props.initialView,
     (nextView) => {
         activeView.value = nextView;
     }
 );
+
+onMounted(() => {
+    if (typeof window === 'undefined') return;
+
+    unsubscribeAgentEvents =
+        window.magicutAPI?.videoAgent?.onEvent(appendAgentEvent);
+});
+
+onUnmounted(() => {
+    unsubscribeAgentEvents?.();
+});
 </script>
 
 <template>
@@ -67,7 +183,15 @@ watch(
                     data-workspace-view="create"
                     :class="viewClassName('create')"
                 >
-                    <CreateMainContent :content="createPageContent" />
+                    <CreateMainContent
+                        :agent-events="agentEvents"
+                        :content="createPageContent"
+                        :is-agent-busy="isAgentBusy"
+                        @agent-approve="handleAgentApprove"
+                        @agent-cancel="handleAgentCancel"
+                        @agent-retry="handleAgentRetry"
+                        @agent-submit="handleAgentSubmit"
+                    />
                 </div>
                 <div
                     data-workspace-view="projects"
