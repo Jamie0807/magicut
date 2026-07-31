@@ -6,6 +6,7 @@ import {
     type DesktopAgentRunEvent
 } from '../../shared/video-agent';
 import CreateMainContent from '../components/create/CreateMainContent.vue';
+import ProjectDeleteConfirmDialog from '../components/workspace/ProjectDeleteConfirmDialog.vue';
 import WorkspaceProjectsContent from '../components/workspace/WorkspaceProjectsContent.vue';
 import WorkspaceSidebar from '../components/workspace/WorkspaceSidebar.vue';
 import { createPageContent } from '../constants/create';
@@ -13,17 +14,19 @@ import {
     getWorkspaceNavItems,
     workspaceBrand,
     workspaceCreateCard,
-    workspaceHeader,
-    workspaceProjects
+    workspaceHeader
 } from '../constants/workspace';
+import { mapVideoProjectFilesToWorkspaceProjects } from '../mappers/workspace-projects';
 import type { CreateAgentSubmitInput } from '../types/create';
-import type { WorkspaceView } from '../types/workspace';
+import type { WorkspaceProject, WorkspaceView } from '../types/workspace';
 
 const props = withDefaults(
     defineProps<{
+        initialProjects?: WorkspaceProject[];
         initialView?: WorkspaceView;
     }>(),
     {
+        initialProjects: () => [],
         initialView: 'projects'
     }
 );
@@ -32,6 +35,12 @@ const activeView = shallowRef<WorkspaceView>(props.initialView);
 const agentEvents = shallowRef<DesktopAgentRunEvent[]>([]);
 const activeAgentRunId = shallowRef<string | undefined>();
 const lastAgentSubmitInput = shallowRef<CreateAgentSubmitInput | undefined>();
+const isProjectDeleting = shallowRef(false);
+const projectDeleteErrorMessage = shallowRef<string | undefined>();
+const projectPendingDeletion = shallowRef<WorkspaceProject | undefined>();
+const workspaceProjectsFromStore = shallowRef<WorkspaceProject[]>(
+    props.initialProjects
+);
 let unsubscribeAgentEvents: (() => void) | undefined;
 const workspaceNavItems = computed(() =>
     getWorkspaceNavItems(activeView.value)
@@ -64,11 +73,29 @@ const selectView = (view: WorkspaceView) => {
     activeView.value = view;
 };
 
+const loadWorkspaceProjects = async () => {
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoProject) {
+        return;
+    }
+
+    const result = await window.magicutAPI.videoProject.list();
+
+    if (result.success === false) return;
+
+    workspaceProjectsFromStore.value = mapVideoProjectFilesToWorkspaceProjects(
+        result.data
+    );
+};
+
 const appendAgentEvent = (event: DesktopAgentRunEvent) => {
     agentEvents.value = [...agentEvents.value, event];
 
     if (event.type === 'run.started') {
         activeAgentRunId.value = event.runId;
+    }
+
+    if (event.type === 'run.completed') {
+        void loadWorkspaceProjects();
     }
 };
 
@@ -144,6 +171,45 @@ const handleAgentRetry = () => {
     void handleAgentSubmit(lastAgentSubmitInput.value);
 };
 
+const handleProjectDeleteRequest = (project: WorkspaceProject) => {
+    projectDeleteErrorMessage.value = undefined;
+    projectPendingDeletion.value = project;
+};
+
+const handleProjectDeleteCancel = () => {
+    if (isProjectDeleting.value) return;
+
+    projectDeleteErrorMessage.value = undefined;
+    projectPendingDeletion.value = undefined;
+};
+
+const handleProjectDeleteConfirm = async () => {
+    const project = projectPendingDeletion.value;
+
+    if (!project) return;
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoProject) {
+        projectDeleteErrorMessage.value = '项目删除接口尚未就绪';
+        return;
+    }
+
+    isProjectDeleting.value = true;
+    const result = await window.magicutAPI.videoProject.delete(project.id);
+
+    if (result.success === false) {
+        projectDeleteErrorMessage.value = result.error.message;
+        isProjectDeleting.value = false;
+        return;
+    }
+
+    workspaceProjectsFromStore.value = workspaceProjectsFromStore.value.filter(
+        (item) => item.id !== project.id
+    );
+    projectDeleteErrorMessage.value = undefined;
+    projectPendingDeletion.value = undefined;
+    isProjectDeleting.value = false;
+};
+
 watch(
     () => props.initialView,
     (nextView) => {
@@ -153,6 +219,8 @@ watch(
 
 onMounted(() => {
     if (typeof window === 'undefined') return;
+
+    void loadWorkspaceProjects();
 
     unsubscribeAgentEvents =
         window.magicutAPI?.videoAgent?.onEvent(appendAgentEvent);
@@ -200,11 +268,19 @@ onUnmounted(() => {
                     <WorkspaceProjectsContent
                         :header="workspaceHeader"
                         :create-card="workspaceCreateCard"
-                        :projects="workspaceProjects"
+                        :projects="workspaceProjectsFromStore"
                         @create="selectView('create')"
+                        @project-delete-request="handleProjectDeleteRequest"
                     />
                 </div>
             </section>
         </div>
+        <ProjectDeleteConfirmDialog
+            :error-message="projectDeleteErrorMessage"
+            :is-deleting="isProjectDeleting"
+            :project="projectPendingDeletion"
+            @cancel="handleProjectDeleteCancel"
+            @confirm="handleProjectDeleteConfirm"
+        />
     </main>
 </template>

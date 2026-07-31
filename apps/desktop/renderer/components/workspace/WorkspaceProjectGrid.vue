@@ -14,6 +14,7 @@ defineProps<{
 
 defineEmits<{
     create: [];
+    projectDeleteRequest: [project: WorkspaceProject];
 }>();
 </script>
 
@@ -22,8 +23,11 @@ defineEmits<{
         <li>
             <WorkspaceCreateCard :card="createCard" @create="$emit('create')" />
         </li>
-        <li v-for="project in projects" :key="project.title">
-            <WorkspaceProjectCard :project="project" />
+        <li v-for="project in projects" :key="project.id">
+            <WorkspaceProjectCard
+                :project="project"
+                @delete-request="$emit('projectDeleteRequest', $event)"
+            />
         </li>
     </ul>
 </template>

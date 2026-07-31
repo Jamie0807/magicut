@@ -37,6 +37,18 @@ interface Window {
                     import('./client/video-project-store').VideoProjectFileResult
                 >
             >;
+            delete: (
+                projectId: string
+            ) => Promise<
+                import('./client/video-project-store').VideoProjectOperationResult<
+                    import('./client/video-project-store').VideoProjectDeleteResult
+                >
+            >;
+            list: () => Promise<
+                import('./client/video-project-store').VideoProjectOperationResult<
+                    import('./client/video-project-store').VideoProjectFileResult[]
+                >
+            >;
             read: (
                 filePath: string
             ) => Promise<

@@ -8,6 +8,7 @@ import { videoProjectIpcChannels } from '../shared/video-project-channels';
 
 import {
     createVideoProjectStore,
+    type VideoProjectDeleteResult,
     type VideoProjectFileResult,
     type VideoProjectOperationResult,
     type VideoProjectStore
@@ -15,6 +16,10 @@ import {
 
 export type VideoProjectCreateInput = {
     project: unknown;
+};
+
+export type VideoProjectDeleteInput = {
+    projectId: string;
 };
 
 export type VideoProjectReadInput = {
@@ -56,6 +61,18 @@ export const registerVideoProjectIpc = ({
     );
 
     ipcMain.handle(
+        videoProjectIpcChannels.delete,
+        async (_event, input: VideoProjectDeleteInput) =>
+            store.deleteProject({
+                projectId: input.projectId
+            })
+    );
+
+    ipcMain.handle(videoProjectIpcChannels.list, async () =>
+        store.listProjects()
+    );
+
+    ipcMain.handle(
         videoProjectIpcChannels.read,
         async (_event, input: VideoProjectReadInput) =>
             store.readProject({
@@ -93,6 +110,10 @@ export type RendererVideoProjectApi = {
     create: (
         project: VideoProject
     ) => Promise<VideoProjectOperationResult<VideoProjectFileResult>>;
+    delete: (
+        projectId: string
+    ) => Promise<VideoProjectOperationResult<VideoProjectDeleteResult>>;
+    list: () => Promise<VideoProjectOperationResult<VideoProjectFileResult[]>>;
     read: (
         filePath: string
     ) => Promise<VideoProjectOperationResult<VideoProject>>;

@@ -9,6 +9,10 @@ import SpotlightCard from './SpotlightCard.vue';
 defineProps<{
     project: WorkspaceProject;
 }>();
+
+const emit = defineEmits<{
+    deleteRequest: [project: WorkspaceProject];
+}>();
 </script>
 
 <template>
@@ -49,13 +53,17 @@ defineProps<{
                     >
                         {{ project.createdAt }}
                     </span>
-                    <span
-                        class="grid h-6 w-[34px] place-items-center text-[#8A8F98] transition-colors duration-200 group-hover:text-[#D5D8DE]"
-                    >
-                        <IconGlyph name="ellipsis" class-name="h-5 w-5" />
-                    </span>
+                    <span class="h-6 w-[34px]" aria-hidden="true" />
                 </div>
             </article>
         </RouterLink>
+        <button
+            type="button"
+            aria-label="删除项目"
+            class="absolute right-5 bottom-[18px] z-20 grid h-6 w-[34px] place-items-center rounded-full text-[#8A8F98] transition-colors duration-200 hover:bg-[#FF4D6D]/15 hover:text-[#FF8A9B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B497CF]"
+            @click.prevent.stop="emit('deleteRequest', project)"
+        >
+            <IconGlyph name="trash-2" class-name="h-5 w-5" />
+        </button>
     </SpotlightCard>
 </template>

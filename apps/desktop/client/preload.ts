@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld('magicutAPI', {
     videoProject: {
         create: async (project: VideoProject) =>
             ipcRenderer.invoke(videoProjectIpcChannels.create, { project }),
+        delete: async (projectId: string) =>
+            ipcRenderer.invoke(videoProjectIpcChannels.delete, { projectId }),
+        list: async () => ipcRenderer.invoke(videoProjectIpcChannels.list),
         read: async (filePath: string) =>
             ipcRenderer.invoke(videoProjectIpcChannels.read, { filePath }),
         readById: async (projectId: string) =>

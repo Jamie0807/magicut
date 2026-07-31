@@ -16,6 +16,7 @@ defineProps<{
 
 defineEmits<{
     create: [];
+    projectDeleteRequest: [project: WorkspaceProject];
 }>();
 </script>
 
@@ -43,6 +44,9 @@ defineEmits<{
                     :create-card="createCard"
                     :projects="projects"
                     @create="$emit('create')"
+                    @project-delete-request="
+                        $emit('projectDeleteRequest', $event)
+                    "
                 />
             </div>
         </div>

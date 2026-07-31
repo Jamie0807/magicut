@@ -30,6 +30,7 @@ export type EditorIconName =
     | 'scissors'
     | 'send'
     | 'sparkles'
+    | 'trash-2'
     | 'upload'
     | 'undo-2'
     | 'volume-2'

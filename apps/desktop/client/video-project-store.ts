@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -7,6 +7,7 @@ import {
 } from '@magicut/video-project';
 
 export type VideoProjectStoreErrorCode =
+    | 'DELETE_FAILED'
     | 'READ_FAILED'
     | 'VALIDATION_FAILED'
     | 'WRITE_FAILED';
@@ -31,10 +32,20 @@ export type VideoProjectFileResult = {
     project: VideoProject;
 };
 
+export type VideoProjectDeleteResult = {
+    projectId: string;
+};
+
 export type VideoProjectStore = {
     createProject: (input: {
         project: unknown;
     }) => Promise<VideoProjectOperationResult<VideoProjectFileResult>>;
+    deleteProject: (input: {
+        projectId: string;
+    }) => Promise<VideoProjectOperationResult<VideoProjectDeleteResult>>;
+    listProjects: () => Promise<
+        VideoProjectOperationResult<VideoProjectFileResult[]>
+    >;
     readProject: (input: {
         filePath: string;
     }) => Promise<VideoProjectOperationResult<VideoProject>>;
@@ -86,10 +97,12 @@ const failure = <T>(
     };
 };
 
-const createProjectFileName = (project: VideoProject) => {
-    const safeProjectId = project.project.id.replace(/[^a-zA-Z0-9_-]/g, '-');
+const createSafeProjectId = (projectId: string) => {
+    return projectId.replace(/[^a-zA-Z0-9_-]/g, '-');
+};
 
-    return `${safeProjectId}.magicut.json`;
+const createProjectFileName = (projectId: string) => {
+    return `${createSafeProjectId(projectId)}.magicut.json`;
 };
 
 const serializeProject = (project: VideoProject) => {
@@ -181,7 +194,7 @@ export const createVideoProjectStore = ({
 
             const filePath = path.join(
                 projectsDirectory,
-                createProjectFileName(result.data)
+                createProjectFileName(result.data.project.id)
             );
             const saved = await saveProject({
                 filePath,
@@ -200,11 +213,99 @@ export const createVideoProjectStore = ({
                 success: true
             };
         },
+        deleteProject: async ({ projectId }) => {
+            const filePath = path.join(
+                projectsDirectory,
+                createProjectFileName(projectId)
+            );
+
+            try {
+                await unlink(filePath);
+
+                return {
+                    data: {
+                        projectId
+                    },
+                    success: true
+                };
+            } catch (error) {
+                if (
+                    error instanceof Error &&
+                    'code' in error &&
+                    error.code === 'ENOENT'
+                ) {
+                    return {
+                        data: {
+                            projectId
+                        },
+                        success: true
+                    };
+                }
+
+                return failure(
+                    toError({
+                        code: 'DELETE_FAILED',
+                        error
+                    })
+                );
+            }
+        },
+        listProjects: async () => {
+            try {
+                const entries = await readdir(projectsDirectory, {
+                    encoding: 'utf8',
+                    withFileTypes: true
+                });
+                const projects: VideoProjectFileResult[] = [];
+
+                for (const entry of entries) {
+                    if (!entry.isFile()) continue;
+                    if (!entry.name.endsWith('.magicut.json')) continue;
+
+                    const filePath = path.join(projectsDirectory, entry.name);
+                    const project = await readProject({ filePath });
+
+                    if (project.success === false) continue;
+
+                    projects.push({
+                        filePath,
+                        project: project.data
+                    });
+                }
+
+                return {
+                    data: projects.toSorted((first, second) =>
+                        second.project.project.updatedAt.localeCompare(
+                            first.project.project.updatedAt
+                        )
+                    ),
+                    success: true
+                };
+            } catch (error) {
+                if (
+                    error instanceof Error &&
+                    'code' in error &&
+                    error.code === 'ENOENT'
+                ) {
+                    return {
+                        data: [],
+                        success: true
+                    };
+                }
+
+                return failure(
+                    toError({
+                        code: 'READ_FAILED',
+                        error
+                    })
+                );
+            }
+        },
         readProject,
         readProjectById: async ({ projectId }) => {
             const filePath = path.join(
                 projectsDirectory,
-                `${projectId.replace(/[^a-zA-Z0-9_-]/g, '-')}.magicut.json`
+                createProjectFileName(projectId)
             );
 
             return readProject({ filePath });

@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { Component } from 'vue';
 import { createSSRApp, h } from 'vue';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
+import { sampleVideoProject } from '@magicut/video-project';
 import { renderToString } from '@vue/server-renderer';
 
 import ConfigPanel from '../renderer/components/config/ConfigPanel.vue';
@@ -13,8 +16,8 @@ import EditorScreen from '../renderer/pages/EditorScreen.vue';
 import { appRoutes } from '../renderer/router';
 import { createConfigModeSelectionHandler } from '../renderer/utils/configModeSelection';
 
-const renderEditorScreen = async () => {
-    const app = createSSRApp(EditorScreen);
+const renderEditorScreen = async (props?: Record<string, unknown>) => {
+    const app = createSSRApp(EditorScreen, props);
     const router = createRouter({
         history: createMemoryHistory(),
         routes: appRoutes
@@ -63,6 +66,39 @@ describe('EditorScreen', () => {
         expect(html).toContain('为当前分镜生成旁白音轨');
         expect(html).toContain('生成口播音轨');
         expect(html).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('uses the loaded project title as an editable editor header title', async () => {
+        const project = structuredClone(sampleVideoProject);
+        project.project.title = '真实生成的项目标题';
+
+        const html = await renderEditorScreen({ project });
+
+        expect(html).toContain('aria-label="项目标题"');
+        expect(html).toContain('value="真实生成的项目标题"');
+        expect(html).not.toContain('口播短片自动剪辑工程</h1>');
+    });
+
+    it('wires project title changes through the editor screen save flow', () => {
+        const headerSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/editor/EditorHeader.vue'
+            ),
+            'utf8'
+        );
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+
+        expect(headerSource).toContain('defineEmits');
+        expect(headerSource).toContain('titleChange');
+        expect(headerSource).toContain("event.key === 'Escape'");
+        expect(editorSource).toContain('handleProjectTitleChange');
+        expect(editorSource).toContain('window.magicutAPI.videoProject.create');
+        expect(editorSource).toContain('刚刚更新 · 已自动保存');
+        expect(editorSource).toContain('标题保存失败');
     });
 
     it('uses voice config as the default renderer strategy', () => {

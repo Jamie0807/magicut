@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue';
+import { computed, shallowRef, watch } from 'vue';
 
 import type { VideoProject } from '@magicut/video-project';
 
@@ -19,7 +19,52 @@ const props = defineProps<{
 }>();
 
 const activeMode = shallowRef<ConfigMode>(editorConfigMode);
-const editorData = computed(() => createEditorScreenData(props.project));
+const currentProject = shallowRef<VideoProject | undefined>(props.project);
+const titleSaveStatus = shallowRef(editorHeader.status);
+const editorData = computed(() => createEditorScreenData(currentProject.value));
+const editorTitle = computed(
+    () => currentProject.value?.project.title ?? editorHeader.title
+);
+
+const handleProjectTitleChange = async (title: string) => {
+    const project = currentProject.value;
+
+    if (!project || title === project.project.title) return;
+
+    const nextProject = {
+        ...project,
+        project: {
+            ...project.project,
+            title,
+            updatedAt: new Date().toISOString()
+        }
+    } satisfies VideoProject;
+
+    currentProject.value = nextProject;
+    titleSaveStatus.value = '正在保存项目标题';
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoProject) {
+        titleSaveStatus.value = '标题保存失败';
+        return;
+    }
+
+    try {
+        const result = await window.magicutAPI.videoProject.create(nextProject);
+
+        titleSaveStatus.value =
+            result.success === true ? '刚刚更新 · 已自动保存' : '标题保存失败';
+    } catch {
+        titleSaveStatus.value = '标题保存失败';
+    }
+};
+
+watch(
+    () => props.project,
+    (project) => {
+        currentProject.value = project;
+        titleSaveStatus.value = editorHeader.status;
+    }
+);
 </script>
 
 <template>
@@ -28,7 +73,11 @@ const editorData = computed(() => createEditorScreenData(props.project));
         class="h-screen min-h-[720px] overflow-hidden bg-[#0E0F12] text-[#F5F7FA]"
     >
         <div class="flex h-full min-w-[1280px] flex-col">
-            <EditorHeader />
+            <EditorHeader
+                :title="editorTitle"
+                :status="titleSaveStatus"
+                @title-change="handleProjectTitleChange"
+            />
             <section
                 class="grid min-h-0 flex-1 grid-cols-[300px_minmax(420px,1fr)_320px_59px]"
             >

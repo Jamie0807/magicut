@@ -32,6 +32,7 @@ const iconPaths: Record<EditorIconName, string> = {
     send: 'M4 12 20 4l-6 16-3-7-7-1Z',
     sparkles:
         'M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 16l-1.7-5L6 9.3l4.3-1.7L12 3Zm6.5 10 .9 2.2 2.1.8-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.8.9-2.2ZM5.5 13l.8 2 1.9.7-1.9.7-.8 2-.8-2-1.9-.7 1.9-.7.8-2Z',
+    'trash-2': 'M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 11v5m4-5v5',
     upload: 'M12 16V4m0 0 5 5m-5-5-5 5M5 20h14',
     'undo-2': 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
     'volume-2': 'M11 5 6 9H3v6h3l5 4V5Zm6 3a4 4 0 0 1 0 8',
@@ -53,6 +54,7 @@ withDefaults(
 <template>
     <svg
         :class="className"
+        :data-icon-name="name"
         fill="none"
         stroke="currentColor"
         stroke-linecap="round"
