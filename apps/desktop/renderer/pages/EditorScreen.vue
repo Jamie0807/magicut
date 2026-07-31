@@ -11,8 +11,13 @@ import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
-import { createEditorScreenData } from '../mappers/video-project-to-editor';
+import {
+    createEditorScreenData,
+    createPlaybackStoryboard,
+    createTimelinePlayhead
+} from '../mappers/video-project-to-editor';
 import type { ConfigMode } from '../types/config';
+import type { TimelineData } from '../types/editor-screen';
 
 const props = defineProps<{
     project?: VideoProject;
@@ -20,8 +25,23 @@ const props = defineProps<{
 
 const activeMode = shallowRef<ConfigMode>(editorConfigMode);
 const currentProject = shallowRef<VideoProject | undefined>(props.project);
+const currentTimeMs = shallowRef(0);
+const isPreviewPlaying = shallowRef(false);
 const titleSaveStatus = shallowRef(editorHeader.status);
 const editorData = computed(() => createEditorScreenData(currentProject.value));
+const timelineData = computed<TimelineData>(() => ({
+    ...editorData.value.timeline,
+    playhead: createTimelinePlayhead({
+        currentTimeMs: currentTimeMs.value,
+        durationMs: editorData.value.preview.durationMs
+    })
+}));
+const storyboardData = computed(() =>
+    createPlaybackStoryboard({
+        currentTimeMs: currentTimeMs.value,
+        storyboard: editorData.value.storyboard
+    })
+);
 const editorTitle = computed(
     () => currentProject.value?.project.title ?? editorHeader.title
 );
@@ -62,7 +82,31 @@ watch(
     () => props.project,
     (project) => {
         currentProject.value = project;
+        currentTimeMs.value = 0;
+        isPreviewPlaying.value = false;
         titleSaveStatus.value = editorHeader.status;
+    }
+);
+
+watch(
+    () =>
+        [isPreviewPlaying.value, editorData.value.preview.durationMs] as const,
+    ([isPlaying, durationMs], _previous, onCleanup) => {
+        if (!isPlaying) return;
+
+        const intervalId = window.setInterval(() => {
+            const nextTimeMs = Math.min(currentTimeMs.value + 250, durationMs);
+
+            currentTimeMs.value = nextTimeMs;
+
+            if (nextTimeMs >= durationMs) {
+                isPreviewPlaying.value = false;
+            }
+        }, 250);
+
+        onCleanup(() => {
+            window.clearInterval(intervalId);
+        });
     }
 );
 </script>
@@ -81,15 +125,20 @@ watch(
             <section
                 class="grid min-h-0 flex-1 grid-cols-[300px_minmax(420px,1fr)_320px_59px]"
             >
-                <ScriptPanel :data="editorData.storyboard" />
-                <PreviewPanel />
+                <ScriptPanel :data="storyboardData" />
+                <PreviewPanel
+                    :current-time-ms="currentTimeMs"
+                    :data="editorData.preview"
+                    :is-playing="isPreviewPlaying"
+                    @toggle-playback="isPreviewPlaying = !isPreviewPlaying"
+                />
                 <ConfigPanel :mode="activeMode" />
                 <ModeRail
                     :active-mode="activeMode"
                     @mode-change="activeMode = $event"
                 />
             </section>
-            <TimelinePanel :data="editorData.timeline" />
+            <TimelinePanel :data="timelineData" />
         </div>
     </main>
 </template>

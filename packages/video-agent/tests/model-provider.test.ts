@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 
 import type { AgentEnv } from '../src/config/load-agent-env';
+import { buildScenePlannerPrompt } from '../src/prompts/scene-planner';
 import {
     ArkChatModelProvider,
     ModelProviderSchemaError,
@@ -94,6 +95,25 @@ const expectJsonSchemaCall = (model: {
 };
 
 describe('ArkChatModelProvider', () => {
+    it('instructs scene planning to output spoken narration copy for subtitle lines', () => {
+        const prompt = buildScenePlannerPrompt({
+            brief: {
+                summary: '介绍 Magicut 智能剪辑'
+            },
+            targetSceneCount: 3
+        });
+
+        expect(prompt).toContain(
+            'subtitleLines 必须是可以直接朗读给 TTS 的口播稿'
+        );
+        expect(prompt).toContain(
+            '不要写分镜说明、镜头动作、标题、编号、冒号式结构'
+        );
+        expect(prompt).toContain('script 必须等于 subtitleLines 按换行拼接');
+        expect(prompt).toContain('分镜数量不要固定');
+        expect(prompt).toContain('每个分镜通常保留 1 到 3 条 subtitleLines');
+    });
+
     it('uses LangChain structured output for creative brief generation', async () => {
         const model = new FakeStructuredChatModel([
             {

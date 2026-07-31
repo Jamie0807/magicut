@@ -9,6 +9,7 @@ import type {
     VoiceClip
 } from '@magicut/video-project';
 
+import { createMediaAssetUrl } from '../../shared/media-protocol';
 import {
     storyboardItems,
     storyboardSummary,
@@ -20,7 +21,9 @@ import {
 } from '../constants/editor-screen';
 import type {
     EditorScreenData,
+    PreviewData,
     StoryboardData,
+    StoryboardItem,
     TimelineClip,
     TimelineData,
     TimelineTrack
@@ -45,8 +48,19 @@ const defaultTimelineData: TimelineData = {
     clipsByTrack: timelineClipsByTrack,
     layout: timelineLayout,
     panel: timelinePanel,
+    playhead: {
+        currentTimeMs: 0,
+        progress: 0
+    },
     ticks: timelineTicks,
     tracks: timelineTracks
+};
+
+const defaultPreviewData: PreviewData = {
+    alt: '当前口播短片的视频预览画面',
+    durationMs: 90_000,
+    source: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
+    type: 'image'
 };
 
 const sortProjectClips = <Clip extends ProjectTimelineClip>(clips: Clip[]) =>
@@ -81,6 +95,65 @@ const toTimelineWidth = (durationMs: number) =>
         )
     );
 
+export const createTimelinePlayhead = ({
+    currentTimeMs,
+    durationMs
+}: {
+    currentTimeMs: number;
+    durationMs: number;
+}): TimelineData['playhead'] => {
+    if (durationMs <= 0) {
+        return {
+            currentTimeMs: 0,
+            progress: 0
+        };
+    }
+
+    const nextCurrentTimeMs = Math.min(Math.max(currentTimeMs, 0), durationMs);
+
+    return {
+        currentTimeMs: nextCurrentTimeMs,
+        progress: Number((nextCurrentTimeMs / durationMs).toFixed(4))
+    };
+};
+
+const hasStoryboardTiming = (
+    item: StoryboardItem
+): item is StoryboardItem & { endMs: number; startMs: number } =>
+    typeof item.startMs === 'number' && typeof item.endMs === 'number';
+
+export const createPlaybackStoryboard = ({
+    currentTimeMs,
+    storyboard
+}: {
+    currentTimeMs: number;
+    storyboard: StoryboardData;
+}): StoryboardData => {
+    const timedItems = storyboard.items.filter(hasStoryboardTiming);
+
+    if (timedItems.length === 0) return storyboard;
+
+    const activeItem =
+        timedItems.find(
+            (item) =>
+                currentTimeMs >= item.startMs && currentTimeMs < item.endMs
+        ) ?? timedItems[timedItems.length - 1];
+
+    return {
+        items: storyboard.items.map((item) => ({
+            ...item,
+            tone: item === activeItem ? 'current' : 'default'
+        })),
+        summary: {
+            ...storyboard.summary,
+            meta: storyboard.summary.meta.replace(
+                /当前 .+$/,
+                `当前 ${activeItem.time}`
+            )
+        }
+    };
+};
+
 const getTrack = (
     tracks: ProjectTimelineTrack[],
     kind: TimelineTrackKind
@@ -94,6 +167,11 @@ const createTicks = (durationMs: number) => {
         formatTimelineTime(index * TICK_INTERVAL_MS)
     );
 };
+
+const clipsOverlap = (
+    first: Pick<ProjectTimelineClip, 'endMs' | 'startMs'>,
+    second: Pick<ProjectTimelineClip, 'endMs' | 'startMs'>
+) => first.startMs < second.endMs && second.startMs < first.endMs;
 
 const createTrackMeta = ({
     kind,
@@ -180,18 +258,28 @@ const mapVideoClip = ({
 
 const mapVoiceClip = ({
     clip,
-    project
+    hasMultipleSceneVoices,
+    project,
+    sceneVoiceIndex
 }: {
     clip: VoiceClip;
+    hasMultipleSceneVoices: boolean;
     project: VideoProject;
-}): TimelineClip => ({
-    bars: 12,
-    colorClassName: clipColorClassNames.voice,
-    durationSeconds: formatDurationSeconds(clip.endMs - clip.startMs),
-    kind: 'voice',
-    label: `旁白${getSceneNumber({ project, sceneId: clip.sceneId })}`,
-    widthPx: toTimelineWidth(clip.endMs - clip.startMs)
-});
+    sceneVoiceIndex: number;
+}): TimelineClip => {
+    const sceneNumber = getSceneNumber({ project, sceneId: clip.sceneId });
+
+    return {
+        bars: 12,
+        colorClassName: clipColorClassNames.voice,
+        durationSeconds: formatDurationSeconds(clip.endMs - clip.startMs),
+        kind: 'voice',
+        label: hasMultipleSceneVoices
+            ? `旁白${sceneNumber}-${formatTwoDigits(sceneVoiceIndex + 1)}`
+            : `旁白${sceneNumber}`,
+        widthPx: toTimelineWidth(clip.endMs - clip.startMs)
+    };
+};
 
 const mapSubtitleClip = ({
     clip,
@@ -239,6 +327,21 @@ const createClipsByTrack = (
     const subtitleTrack = getTrack(project.tracks, 'subtitle');
     const musicTrack = getTrack(project.tracks, 'music');
     const subtitleCountsByScene = new Map<string, number>();
+    const voiceCountsByScene = new Map<string, number>();
+    const sortedVoiceClips = sortProjectClips(
+        (voiceTrack?.clips ?? []).filter(
+            (clip): clip is VoiceClip => clip.kind === 'voice'
+        )
+    );
+    const voiceTotalsByScene = new Map<string, number>();
+
+    sortedVoiceClips.forEach((clip) => {
+        const sceneId = clip.sceneId ?? clip.id;
+        voiceTotalsByScene.set(
+            sceneId,
+            (voiceTotalsByScene.get(sceneId) ?? 0) + 1
+        );
+    });
 
     return {
         music: sortProjectClips(
@@ -266,11 +369,19 @@ const createClipsByTrack = (
                 (clip): clip is VideoClip => clip.kind === 'video'
             )
         ).map((clip, index) => mapVideoClip({ clip, index, project })),
-        voice: sortProjectClips(
-            (voiceTrack?.clips ?? []).filter(
-                (clip): clip is VoiceClip => clip.kind === 'voice'
-            )
-        ).map((clip) => mapVoiceClip({ clip, project }))
+        voice: sortedVoiceClips.map((clip) => {
+            const sceneId = clip.sceneId ?? clip.id;
+            const sceneVoiceIndex = voiceCountsByScene.get(sceneId) ?? 0;
+            voiceCountsByScene.set(sceneId, sceneVoiceIndex + 1);
+
+            return mapVoiceClip({
+                clip,
+                hasMultipleSceneVoices:
+                    (voiceTotalsByScene.get(sceneId) ?? 0) > 1,
+                project,
+                sceneVoiceIndex
+            });
+        })
     };
 };
 
@@ -297,6 +408,8 @@ const createStoryboard = (project: VideoProject): StoryboardData => {
 
             return {
                 body,
+                endMs,
+                startMs,
                 time: `${formatTimelineTime(startMs)}-${formatTimelineTime(endMs)}`,
                 title: `分镜 ${formatTwoDigits(scene.index)}`,
                 tone: index === 0 ? 'current' : 'default'
@@ -318,7 +431,7 @@ const createTimeline = (project: VideoProject): TimelineData => {
         clipsByTrack: createClipsByTrack(project),
         layout: {
             ...timelineLayout,
-            contentMinWidthClassName: `min-w-[${contentWidthPx}px] w-[${contentWidthPx}px]`,
+            contentMinWidthClassName: `min-w-[max(100%,${contentWidthPx}px)] w-[${contentWidthPx}px]`,
             contentWidthPx,
             tickWidthPx: toTimelineWidth(TICK_INTERVAL_MS)
         },
@@ -328,14 +441,136 @@ const createTimeline = (project: VideoProject): TimelineData => {
                 project.canvas.durationMs
             )}`
         },
+        playhead: createTimelinePlayhead({
+            currentTimeMs: 0,
+            durationMs: project.canvas.durationMs
+        }),
         ticks: createTicks(project.canvas.durationMs),
         tracks: createTracks(project)
+    };
+};
+
+const createPreview = (project: VideoProject): PreviewData => {
+    const videoTrack = getTrack(project.tracks, 'video');
+    const voiceTrack = getTrack(project.tracks, 'voice');
+    const subtitleTrack = getTrack(project.tracks, 'subtitle');
+    const videoClips = sortProjectClips(
+        (videoTrack?.clips ?? []).filter(
+            (clip): clip is VideoClip => clip.kind === 'video'
+        )
+    );
+    const voiceClips = sortProjectClips(
+        (voiceTrack?.clips ?? []).filter(
+            (clip): clip is VoiceClip => clip.kind === 'voice'
+        )
+    );
+    const subtitleClips = sortProjectClips(
+        (subtitleTrack?.clips ?? []).filter(
+            (clip): clip is SubtitleClip => clip.kind === 'subtitle'
+        )
+    );
+    const scenesById = new Map(
+        project.scenes.map((scene) => [scene.id, scene])
+    );
+    const subtitlesById = new Map(
+        project.assets.subtitles.map((subtitle) => [subtitle.id, subtitle])
+    );
+    const projectId = project.project.id;
+    const segments = videoClips.flatMap((clip) => {
+        const videoAsset = project.assets.videos.find(
+            (asset) => asset.id === clip.assetId
+        );
+
+        if (!videoAsset) return [];
+
+        const scene = clip.sceneId ? scenesById.get(clip.sceneId) : undefined;
+        const thumbnailId = videoAsset.thumbnailIds[0];
+        const matchingThumbnail = project.assets.thumbnails.find(
+            (thumbnail) => thumbnail.id === thumbnailId
+        );
+        const matchingVoiceClips = voiceClips.filter((voiceClip) => {
+            if (clip.sceneId && voiceClip.sceneId) {
+                return clip.sceneId === voiceClip.sceneId;
+            }
+
+            return clipsOverlap(clip, voiceClip);
+        });
+        const voiceCues = matchingVoiceClips.map((voiceClip) => ({
+            endMs: voiceClip.endMs,
+            id: voiceClip.id,
+            source: createMediaAssetUrl({
+                assetId: voiceClip.assetId,
+                kind: 'voice',
+                projectId
+            }),
+            startMs: voiceClip.startMs
+        }));
+        const subtitleCues = subtitleClips
+            .filter((subtitleClip) => {
+                if (clip.sceneId && subtitleClip.sceneId) {
+                    return clip.sceneId === subtitleClip.sceneId;
+                }
+
+                return clipsOverlap(clip, subtitleClip);
+            })
+            .map((subtitleClip) => ({
+                endMs: subtitleClip.endMs,
+                id: subtitleClip.id,
+                startMs: subtitleClip.startMs,
+                text:
+                    subtitlesById.get(subtitleClip.subtitleId)?.text ??
+                    subtitleClip.text
+            }));
+
+        return [
+            {
+                alt: `${scene?.title ?? project.project.title} 画面`,
+                endMs: clip.endMs,
+                id: clip.id,
+                posterSource: matchingThumbnail
+                    ? createMediaAssetUrl({
+                          assetId: matchingThumbnail.id,
+                          kind: 'thumbnail',
+                          projectId
+                      })
+                    : undefined,
+                source: createMediaAssetUrl({
+                    assetId: videoAsset.id,
+                    kind: 'video',
+                    projectId
+                }),
+                sourceEndMs: clip.sourceEndMs,
+                sourceStartMs: clip.sourceStartMs,
+                startMs: clip.startMs,
+                subtitleCues,
+                voiceCues,
+                voiceSource: voiceCues[0]?.source
+            }
+        ];
+    });
+    const firstSegment = segments[0];
+
+    if (!firstSegment) {
+        return {
+            ...defaultPreviewData,
+            durationMs: project.canvas.durationMs
+        };
+    }
+
+    return {
+        alt: firstSegment.alt,
+        durationMs: project.canvas.durationMs,
+        posterSource: firstSegment.posterSource,
+        segments,
+        source: firstSegment.source,
+        type: 'video'
     };
 };
 
 export const videoProjectToEditor = (
     project: VideoProject
 ): EditorScreenData => ({
+    preview: createPreview(project),
     storyboard: createStoryboard(project),
     timeline: createTimeline(project)
 });
@@ -345,6 +580,7 @@ export const createEditorScreenData = (
 ): EditorScreenData => {
     if (!project) {
         return {
+            preview: defaultPreviewData,
             storyboard: defaultStoryboardData,
             timeline: defaultTimelineData
         };

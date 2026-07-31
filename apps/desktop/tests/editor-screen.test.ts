@@ -11,6 +11,7 @@ import { renderToString } from '@vue/server-renderer';
 import ConfigPanel from '../renderer/components/config/ConfigPanel.vue';
 import ConfigPresetSwatch from '../renderer/components/config/shared/ConfigPresetSwatch.vue';
 import ModeRail from '../renderer/components/editor/ModeRail.vue';
+import PreviewPanel from '../renderer/components/editor/PreviewPanel.vue';
 import { editorConfigMode } from '../renderer/constants/config';
 import EditorScreen from '../renderer/pages/EditorScreen.vue';
 import { appRoutes } from '../renderer/router';
@@ -77,6 +78,77 @@ describe('EditorScreen', () => {
         expect(html).toContain('aria-label="项目标题"');
         expect(html).toContain('value="真实生成的项目标题"');
         expect(html).not.toContain('口播短片自动剪辑工程</h1>');
+    });
+
+    it('renders project media through the preview panel and playback controls', async () => {
+        const html = await renderComponent(PreviewPanel, {
+            currentTimeMs: 1000,
+            data: {
+                alt: '真实视频画面',
+                durationMs: 8000,
+                segments: [
+                    {
+                        alt: '第一段真实视频',
+                        endMs: 8000,
+                        id: 'video_clip_001',
+                        posterSource:
+                            'magicut-media://project/project_real/thumbnail/thumbnail_asset_001',
+                        source: 'magicut-media://project/project_real/video/video_asset_001',
+                        sourceEndMs: 8000,
+                        sourceStartMs: 0,
+                        startMs: 0,
+                        subtitleCues: [
+                            {
+                                endMs: 3000,
+                                id: 'subtitle_clip_001',
+                                startMs: 0,
+                                text: '真实字幕'
+                            }
+                        ],
+                        voiceCues: [
+                            {
+                                endMs: 3000,
+                                id: 'voice_clip_001',
+                                source: 'magicut-media://project/project_real/voice/voice_asset_001',
+                                startMs: 0
+                            }
+                        ],
+                        voiceSource:
+                            'magicut-media://project/project_real/voice/voice_asset_001'
+                    }
+                ],
+                source: 'magicut-media://project/project_real/video/video_asset_001',
+                type: 'video'
+            },
+            isPlaying: true
+        });
+
+        expect(html).toContain('data-preview-source="project-video"');
+        expect(html).toContain(
+            'src="magicut-media://project/project_real/video/video_asset_001"'
+        );
+        expect(html).toContain(
+            'poster="magicut-media://project/project_real/thumbnail/thumbnail_asset_001"'
+        );
+        expect(html).toContain(
+            'src="magicut-media://project/project_real/voice/voice_asset_001"'
+        );
+        expect(html).toContain('data-preview-subtitle="true"');
+        expect(html).toContain('真实字幕');
+        expect(html).toContain('aria-label="暂停预览"');
+    });
+
+    it('wires preview playback into storyboard and timeline state', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('currentTimeMs');
+        expect(editorSource).toContain('isPreviewPlaying');
+        expect(editorSource).toContain('createPlaybackStoryboard');
+        expect(editorSource).toContain('createTimelinePlayhead');
+        expect(editorSource).toContain('@toggle-playback');
     });
 
     it('wires project title changes through the editor screen save flow', () => {
@@ -275,9 +347,10 @@ describe('EditorScreen', () => {
         expect(html).toContain('h-[272px]');
         expect(html).toContain('h-[42px]');
         expect(html).toContain('overflow-x-auto');
-        expect(html).toContain(
-            'absolute top-[35px] left-[191px] h-[237px] w-5'
-        );
+        expect(html).toContain('absolute top-[35px] h-[237px] w-5');
+        expect(html).toContain('data-playhead-progress="0"');
+        expect(html).toContain('data-playhead-scroll-left="0"');
+        expect(html).toContain('left:calc(200px - 9px + 0px);');
         expect(html).toContain('[app-region:drag]');
         expect(html).toContain('[app-region:no-drag]');
         expect(html).not.toContain('absolute top-[45px] left-[195px]');

@@ -21,8 +21,10 @@ export type AssetMatchResult = {
 export type VoiceSynthesisResult = {
     assetId: string;
     durationMs: number;
+    lineIndex: number;
     path: string;
     sceneId: string;
+    text: string;
 };
 
 export type VideoCreationInput = {

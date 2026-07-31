@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, shallowRef, useTemplateRef, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 
 import {
@@ -56,11 +56,19 @@ const timelineTrackRowStartClassNames = [
     'row-start-4',
     'row-start-5'
 ] as const;
+const PLAYHEAD_CONTENT_START_PX = 200;
+const PLAYHEAD_LINE_OFFSET_PX = 9;
+const PLAYHEAD_SCROLL_LEADING_PADDING_PX = 24;
+const PLAYHEAD_SCROLL_TRAILING_PADDING_PX = 96;
 
 const fallbackTimelineData: TimelineData = {
     clipsByTrack: timelineClipsByTrack,
     layout: timelineLayout,
     panel: timelinePanel,
+    playhead: {
+        currentTimeMs: 0,
+        progress: 0
+    },
     ticks: timelineTicks,
     tracks: timelineTracks
 };
@@ -69,6 +77,14 @@ const props = defineProps<{
     data?: TimelineData;
 }>();
 const timelineData = computed(() => props.data ?? fallbackTimelineData);
+const scrollContainerRef = useTemplateRef<HTMLDivElement>('scrollContainerRef');
+const scrollLeftPx = shallowRef(0);
+const contentWidthPx = computed(
+    () => timelineData.value.layout.contentWidthPx ?? 1728
+);
+const playheadX = computed(() =>
+    Math.round(contentWidthPx.value * timelineData.value.playhead.progress)
+);
 
 const trackRows = computed(() =>
     timelineData.value.tracks.map((track, index) => ({
@@ -80,6 +96,10 @@ const trackRows = computed(() =>
 const clipStyle = (clip: TimelineClip): CSSProperties => ({
     width: `${clip.widthPx}px`
 });
+
+const handleTimelineScroll = (event: Event) => {
+    scrollLeftPx.value = (event.currentTarget as HTMLDivElement).scrollLeft;
+};
 
 const timelineContentStyle = computed<CSSProperties | undefined>(() => {
     if (!timelineData.value.layout.contentWidthPx) {
@@ -100,6 +120,71 @@ const tickStyle = computed<CSSProperties | undefined>(() => {
     return {
         width: `${timelineData.value.layout.tickWidthPx}px`
     };
+});
+
+const calculateTimelineScrollLeft = ({
+    contentWidthPx,
+    currentScrollLeft,
+    playheadX,
+    viewportWidth
+}: {
+    contentWidthPx: number;
+    currentScrollLeft: number;
+    playheadX: number;
+    viewportWidth: number;
+}) => {
+    if (viewportWidth <= 0) return currentScrollLeft;
+
+    const maxScrollLeft = Math.max(0, contentWidthPx - viewportWidth);
+    const visibleStart = currentScrollLeft + PLAYHEAD_SCROLL_LEADING_PADDING_PX;
+    const visibleEnd =
+        currentScrollLeft + viewportWidth - PLAYHEAD_SCROLL_TRAILING_PADDING_PX;
+
+    if (playheadX < visibleStart) {
+        return Math.max(0, playheadX - PLAYHEAD_SCROLL_LEADING_PADDING_PX);
+    }
+
+    if (playheadX > visibleEnd) {
+        return Math.min(
+            maxScrollLeft,
+            playheadX - viewportWidth + PLAYHEAD_SCROLL_TRAILING_PADDING_PX
+        );
+    }
+
+    return currentScrollLeft;
+};
+
+const playheadStyle = computed<CSSProperties>(() => {
+    const visiblePlayheadX = playheadX.value - scrollLeftPx.value;
+
+    return {
+        left: `calc(${PLAYHEAD_CONTENT_START_PX}px - ${PLAYHEAD_LINE_OFFSET_PX}px + ${Math.round(
+            visiblePlayheadX
+        )}px)`
+    };
+});
+
+watch([contentWidthPx, playheadX], () => {
+    const scrollContainer = scrollContainerRef.value;
+
+    if (!scrollContainer) return;
+
+    const nextScrollLeft = calculateTimelineScrollLeft({
+        contentWidthPx: contentWidthPx.value,
+        currentScrollLeft: scrollContainer.scrollLeft,
+        playheadX: playheadX.value,
+        viewportWidth: scrollContainer.clientWidth
+    });
+
+    if (Math.abs(nextScrollLeft - scrollContainer.scrollLeft) <= 1) {
+        return;
+    }
+
+    scrollContainer.scrollTo({
+        behavior: 'smooth',
+        left: nextScrollLeft
+    });
+    scrollLeftPx.value = nextScrollLeft;
 });
 </script>
 
@@ -193,7 +278,10 @@ const tickStyle = computed<CSSProperties | undefined>(() => {
             </div>
 
             <div
+                ref="scrollContainerRef"
+                data-timeline-scroll-container="true"
                 class="col-start-2 row-start-1 row-span-5 min-w-0 overflow-x-auto overflow-y-hidden"
+                @scroll="handleTimelineScroll"
             >
                 <div
                     :class="[
@@ -294,7 +382,12 @@ const tickStyle = computed<CSSProperties | undefined>(() => {
             </div>
         </div>
 
-        <div class="absolute top-[35px] left-[191px] h-[237px] w-5">
+        <div
+            :style="playheadStyle"
+            :data-playhead-progress="timelineData.playhead.progress"
+            :data-playhead-scroll-left="scrollLeftPx"
+            class="absolute top-[35px] h-[237px] w-5 transition-[left] duration-200 ease-out"
+        >
             <span
                 class="absolute top-0 left-[3px] h-[14px] w-[14px] rounded-full border-[3px] border-[#06372F] bg-[#F05F73]"
             />

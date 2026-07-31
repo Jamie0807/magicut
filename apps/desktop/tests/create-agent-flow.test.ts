@@ -5,6 +5,275 @@ import path, { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('create agent flow', () => {
+    it('creates spoken fallback scripts instead of storyboard planning labels', async () => {
+        const { createDesktopVideoAgentTools } = await import(
+            '../client/video-agent-tools'
+        );
+        const tools = createDesktopVideoAgentTools({ store: {} as never });
+        const scenes = await tools.planScenes({
+            assets: [
+                {
+                    assetId: 'video_asset_001',
+                    description: '产品界面录屏',
+                    durationMs: 5000
+                }
+            ],
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['智能剪辑'],
+                summary: '介绍 Magicut 智能剪辑',
+                title: 'Magicut',
+                tone: '清晰自然',
+                visualStyle: '产品录屏'
+            },
+            input: {
+                prompt: '帮我介绍 Magicut 智能剪辑',
+                runId: 'run_fallback_script',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            }
+        });
+        const scriptText = scenes
+            .flatMap((scene) => scene.subtitleLines)
+            .join('\n');
+
+        expect(scriptText).not.toMatch(
+            /开场明确主题|展示核心内容|收束行动引导|[：:]/
+        );
+        expect(
+            scenes.every(
+                (scene) => scene.script === scene.subtitleLines.join('\n')
+            )
+        ).toBe(true);
+    });
+
+    it('does not send empty or punctuation-only text to TTS', async () => {
+        const { createDesktopVideoAgentTools } = await import(
+            '../client/video-agent-tools'
+        );
+        const ttsCalls: string[] = [];
+        const tools = createDesktopVideoAgentTools({
+            getSelectedVoiceType: () => 'zh_female_wenroushunv_uranus_bigtts',
+            modelProvider: {
+                describeFrames: async () => [] as never[],
+                embedTexts: async () => [] as never[],
+                generateCreativeBrief: async () => ({
+                    audience: '短视频创作者',
+                    keyMessages: ['智能剪辑'],
+                    summary: '介绍 Magicut 智能剪辑',
+                    title: 'Magicut',
+                    tone: '清晰自然',
+                    visualStyle: '产品录屏'
+                }),
+                planScenes: async () => [
+                    {
+                        durationMs: 5000,
+                        goal: '建立主题',
+                        id: 'scene_001',
+                        index: 1,
+                        script: '开场：',
+                        subtitleLines: ['字幕：', '……'],
+                        title: '开场',
+                        visualIntent: '产品界面'
+                    }
+                ],
+                rankAssetMatches: async () => []
+            },
+            store: {} as never,
+            ttsProvider: {
+                synthesizeSpeech: async ({ outputPath, text }) => {
+                    ttsCalls.push(text);
+
+                    return {
+                        byteLength: 1,
+                        durationMs: 1200,
+                        format: 'mp3',
+                        path: outputPath
+                    };
+                }
+            },
+            voiceOutputDirectory: '/tmp/magicut-voices'
+        });
+        const scenes = await tools.planScenes({
+            assets: [
+                {
+                    assetId: 'video_asset_001',
+                    description: '产品界面录屏',
+                    durationMs: 5000
+                }
+            ],
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['智能剪辑'],
+                summary: '介绍 Magicut 智能剪辑',
+                title: 'Magicut',
+                tone: '清晰自然',
+                visualStyle: '产品录屏'
+            },
+            input: {
+                prompt: '介绍 Magicut 智能剪辑',
+                runId: 'run_no_readable_text',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            }
+        });
+
+        await tools.synthesizeVoice({
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['智能剪辑'],
+                summary: '介绍 Magicut 智能剪辑',
+                title: 'Magicut',
+                tone: '清晰自然',
+                visualStyle: '产品录屏'
+            },
+            input: {
+                prompt: '介绍 Magicut 智能剪辑',
+                runId: 'run_no_readable_text',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            },
+            scenes
+        });
+
+        expect(ttsCalls.length).toBeGreaterThan(0);
+        expect(ttsCalls.every((text) => /[\p{L}\p{N}]/u.test(text))).toBe(true);
+        expect(ttsCalls.join('\n')).not.toMatch(/^[\s\p{P}\p{S}]+$/u);
+    });
+
+    it('keeps a long spoken subtitle line intact when no natural boundary exists', async () => {
+        const { createDesktopVideoAgentTools } = await import(
+            '../client/video-agent-tools'
+        );
+        const longSpokenLine =
+            '这是一段没有标点但需要保持完整不要被机械截断的口播字幕文本';
+        const tools = createDesktopVideoAgentTools({
+            modelProvider: {
+                describeFrames: async () => [] as never[],
+                embedTexts: async () => [] as never[],
+                generateCreativeBrief: async () => ({
+                    audience: '短视频创作者',
+                    keyMessages: ['自然断句'],
+                    summary: '字幕不能硬切',
+                    title: '自然断句',
+                    tone: '自然',
+                    visualStyle: '产品录屏'
+                }),
+                planScenes: async () => [
+                    {
+                        durationMs: 5000,
+                        goal: '验证自然字幕',
+                        id: 'scene_001',
+                        index: 1,
+                        script: longSpokenLine,
+                        subtitleLines: [longSpokenLine],
+                        title: '自然字幕',
+                        visualIntent: '产品界面'
+                    }
+                ],
+                rankAssetMatches: async () => []
+            },
+            store: {} as never
+        });
+
+        const scenes = await tools.planScenes({
+            assets: [
+                {
+                    assetId: 'video_asset_001',
+                    description: '产品界面录屏',
+                    durationMs: 5000
+                }
+            ],
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['自然断句'],
+                summary: '字幕不能硬切',
+                title: '自然断句',
+                tone: '自然',
+                visualStyle: '产品录屏'
+            },
+            input: {
+                prompt: '验证字幕自然断句',
+                runId: 'run_natural_subtitle_line',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            }
+        });
+
+        expect(scenes[0]?.subtitleLines).toEqual([longSpokenLine]);
+        expect(scenes[0]?.script).toBe(longSpokenLine);
+    });
+
+    it('lets the model choose the scene count instead of forcing a fixed target', async () => {
+        const { createDesktopVideoAgentTools } = await import(
+            '../client/video-agent-tools'
+        );
+        const planSceneInputs: unknown[] = [];
+        const tools = createDesktopVideoAgentTools({
+            modelProvider: {
+                describeFrames: async () => [] as never[],
+                embedTexts: async () => [] as never[],
+                generateCreativeBrief: async () => ({
+                    audience: '短视频创作者',
+                    keyMessages: ['动态分镜'],
+                    summary: '根据内容决定分镜',
+                    title: '动态分镜',
+                    tone: '自然',
+                    visualStyle: '产品录屏'
+                }),
+                planScenes: async (input) => {
+                    planSceneInputs.push(input);
+
+                    return [
+                        {
+                            durationMs: 5000,
+                            goal: '验证动态分镜',
+                            id: 'scene_001',
+                            index: 1,
+                            script: '根据内容决定分镜数量',
+                            subtitleLines: ['根据内容决定分镜数量'],
+                            title: '动态分镜',
+                            visualIntent: '产品界面'
+                        }
+                    ];
+                },
+                rankAssetMatches: async () => []
+            },
+            store: {} as never
+        });
+
+        await tools.planScenes({
+            assets: [
+                {
+                    assetId: 'video_asset_001',
+                    description: '产品界面录屏',
+                    durationMs: 5000
+                },
+                {
+                    assetId: 'video_asset_002',
+                    description: '素材特写',
+                    durationMs: 5000
+                }
+            ],
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['动态分镜'],
+                summary: '根据内容决定分镜',
+                title: '动态分镜',
+                tone: '自然',
+                visualStyle: '产品录屏'
+            },
+            input: {
+                prompt: '根据内容规划分镜',
+                runId: 'run_dynamic_scene_count',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            }
+        });
+
+        expect(planSceneInputs[0]).toMatchObject({
+            brief: expect.objectContaining({
+                summary: '根据内容决定分镜'
+            })
+        });
+        expect(planSceneInputs[0]).not.toHaveProperty('targetSceneCount');
+    });
+
     it('wires the agent progress panel and local asset directory input into the create tab', () => {
         const inputPanelSource = readFileSync(
             resolve(
@@ -494,6 +763,193 @@ describe('create agent flow', () => {
                 },
                 success: true
             });
+        } finally {
+            await rm(assetDirectory, { force: true, recursive: true });
+            await rm(projectsDirectory, { force: true, recursive: true });
+        }
+    });
+
+    it('uses subtitle lines as the TTS source and derives scene timing from voice duration', async () => {
+        const assetDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-assets-')
+        );
+        const projectsDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-projects-')
+        );
+
+        try {
+            await mkdir(assetDirectory, { recursive: true });
+            await writeFile(path.join(assetDirectory, 'scene-01.mp4'), '');
+
+            const { createVideoProjectStore } = await import(
+                '../client/video-project-store'
+            );
+            const { createLangGraphVideoAgentController } = await import(
+                '../client/video-agent-ipc'
+            );
+            const ttsCalls: string[] = [];
+            const ttsDurationsByText = new Map([
+                ['第一句字幕就是第一段配音', 1400],
+                ['第二句字幕就是第二段配音', 2300]
+            ]);
+            const modelProvider = {
+                describeFrames: async () => [] as never[],
+                embedTexts: async () => [] as never[],
+                generateCreativeBrief: async () => ({
+                    audience: '短视频创作者',
+                    keyMessages: ['字幕驱动配音'],
+                    summary: '字幕和配音需要严格同步',
+                    title: '字幕配音同步',
+                    tone: '清晰',
+                    visualStyle: '产品录屏'
+                }),
+                planScenes: async () => [
+                    {
+                        durationMs: 9999,
+                        goal: '验证分镜时长不再由模型预估决定',
+                        id: 'scene_001',
+                        index: 1,
+                        script: '这段脚本不应该直接送给 TTS',
+                        subtitleLines: [
+                            '第一句字幕就是第一段配音',
+                            '第二句字幕就是第二段配音'
+                        ],
+                        title: '同步验证',
+                        visualIntent: '单个视频对应一个分镜'
+                    }
+                ],
+                rankAssetMatches: async () => [
+                    {
+                        rankedAssetIds: [
+                            {
+                                assetId: 'video_asset_run_voice_timing_001',
+                                reason: '匹配单分镜视频',
+                                score: 0.95
+                            }
+                        ],
+                        sceneId: 'scene_001'
+                    }
+                ]
+            };
+            const ttsProvider = {
+                synthesizeSpeech: async ({
+                    outputPath,
+                    text,
+                    voice
+                }: {
+                    outputPath: string;
+                    text: string;
+                    voice: string;
+                }) => {
+                    ttsCalls.push(`${voice}:${text}`);
+                    await writeFile(outputPath, new Uint8Array([1, 2, 3]));
+
+                    return {
+                        byteLength: 3,
+                        durationMs: ttsDurationsByText.get(text) ?? 1000,
+                        format: 'mp3' as const,
+                        path: outputPath
+                    };
+                }
+            };
+            const store = createVideoProjectStore({ projectsDirectory });
+            const controller = createLangGraphVideoAgentController({
+                createRunId: () => 'run_voice_timing',
+                modelProvider,
+                now: () => '2026-06-23T01:00:00.000Z',
+                store,
+                ttsProvider,
+                voiceOutputDirectory: path.join(projectsDirectory, 'voices')
+            });
+
+            await controller.start(
+                {
+                    prompt: '做一个字幕配音同步验证视频',
+                    selectedVoice: '温婉学姐',
+                    selectedVoiceType: 'zh_female_wenroushunv_uranus_bigtts',
+                    sourceAssetDirectory: assetDirectory
+                },
+                () => undefined
+            );
+            const approved = await controller.approve(
+                {
+                    approved: true,
+                    runId: 'run_voice_timing'
+                },
+                () => undefined
+            );
+
+            if (approved.success === false) {
+                throw new Error(approved.error.message);
+            }
+
+            expect(ttsCalls).toEqual([
+                'zh_female_wenroushunv_uranus_bigtts:第一句字幕就是第一段配音',
+                'zh_female_wenroushunv_uranus_bigtts:第二句字幕就是第二段配音'
+            ]);
+
+            const loaded = await store.readProjectById({
+                projectId: 'project_run_voice_timing'
+            });
+
+            if (loaded.success === false) {
+                throw new Error(loaded.error.message);
+            }
+
+            const project = loaded.data;
+            const videoTrack = project.tracks.find(
+                (track) => track.kind === 'video'
+            );
+            const voiceTrack = project.tracks.find(
+                (track) => track.kind === 'voice'
+            );
+            const subtitleTrack = project.tracks.find(
+                (track) => track.kind === 'subtitle'
+            );
+
+            expect(project.canvas.durationMs).toBe(3700);
+            expect(project.scenes[0]).toMatchObject({
+                durationMs: 3700,
+                script: '第一句字幕就是第一段配音\n第二句字幕就是第二段配音'
+            });
+            expect(videoTrack?.clips).toMatchObject([
+                {
+                    endMs: 3700,
+                    kind: 'video',
+                    sceneId: 'scene_001',
+                    startMs: 0
+                }
+            ]);
+            expect(voiceTrack?.clips).toMatchObject([
+                {
+                    endMs: 1400,
+                    kind: 'voice',
+                    sceneId: 'scene_001',
+                    startMs: 0
+                },
+                {
+                    endMs: 3700,
+                    kind: 'voice',
+                    sceneId: 'scene_001',
+                    startMs: 1400
+                }
+            ]);
+            expect(subtitleTrack?.clips).toMatchObject([
+                {
+                    endMs: 1400,
+                    kind: 'subtitle',
+                    sceneId: 'scene_001',
+                    startMs: 0,
+                    text: '第一句字幕就是第一段配音'
+                },
+                {
+                    endMs: 3700,
+                    kind: 'subtitle',
+                    sceneId: 'scene_001',
+                    startMs: 1400,
+                    text: '第二句字幕就是第二段配音'
+                }
+            ]);
         } finally {
             await rm(assetDirectory, { force: true, recursive: true });
             await rm(projectsDirectory, { force: true, recursive: true });

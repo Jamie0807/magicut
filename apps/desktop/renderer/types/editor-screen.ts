@@ -24,6 +24,7 @@ export type EditorIconName =
     | 'mic'
     | 'minus'
     | 'music'
+    | 'pause'
     | 'play'
     | 'plus'
     | 'redo-2'
@@ -43,6 +44,8 @@ export type StoryboardItem = {
     title: string;
     time: string;
     body: string;
+    endMs?: number;
+    startMs?: number;
     tone: StoryboardCardTone;
 };
 
@@ -114,11 +117,60 @@ export type TimelineData = {
     clipsByTrack: Record<TimelineTrackKind, TimelineClip[]>;
     layout: TimelineLayout;
     panel: TimelinePanelSummary;
+    playhead: {
+        currentTimeMs: number;
+        progress: number;
+    };
     ticks: string[];
     tracks: TimelineTrack[];
 };
 
+export type PreviewSubtitleCue = {
+    endMs: number;
+    id: string;
+    startMs: number;
+    text: string;
+};
+
+export type PreviewVoiceCue = {
+    endMs: number;
+    id: string;
+    source: string;
+    startMs: number;
+};
+
+export type PreviewSegment = {
+    alt: string;
+    endMs: number;
+    id: string;
+    posterSource?: string;
+    source: string;
+    sourceEndMs: number;
+    sourceStartMs: number;
+    startMs: number;
+    subtitleCues: PreviewSubtitleCue[];
+    voiceCues?: PreviewVoiceCue[];
+    voiceSource?: string;
+};
+
+export type PreviewData =
+    | {
+          alt: string;
+          durationMs: number;
+          source: string;
+          type: 'image';
+      }
+    | {
+          alt: string;
+          durationMs: number;
+          posterSource?: string;
+          segments: PreviewSegment[];
+          source: string;
+          type: 'video';
+      };
+
 export type EditorScreenData = {
+    preview: PreviewData;
     storyboard: StoryboardData;
     timeline: TimelineData;
 };

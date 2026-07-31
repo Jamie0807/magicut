@@ -70,8 +70,10 @@ const voices: VoiceSynthesisResult[] = [
     {
         assetId: 'voice-001',
         durationMs: 3000,
+        lineIndex: 0,
         path: '/tmp/magicut/voice-001.mp3',
-        sceneId: 'scene-001'
+        sceneId: 'scene-001',
+        text: 'Magicut makes video creation faster'
     }
 ];
 

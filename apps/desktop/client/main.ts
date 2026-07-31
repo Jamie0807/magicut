@@ -3,6 +3,10 @@ import started from 'electron-squirrel-startup';
 import path from 'node:path';
 
 import {
+    registerMediaProtocol,
+    registerMediaProtocolSchemePrivileges
+} from './media-protocol';
+import {
     createLangGraphVideoAgentController,
     registerVideoAgentIpc
 } from './video-agent-ipc';
@@ -15,6 +19,8 @@ import { createMainWindowOptions } from './window-options';
 if (started) {
     app.quit();
 }
+
+registerMediaProtocolSchemePrivileges();
 
 const createWindow = () => {
     const mainWindow = new BrowserWindow(
@@ -38,6 +44,7 @@ app.whenReady().then(() => {
     const agentRunDirectory = path.join(app.getPath('userData'), 'agent-runs');
 
     registerVideoProjectIpc({ ipcMain, store: videoProjectStore });
+    registerMediaProtocol({ store: videoProjectStore });
     registerVideoAgentIpc({
         controller: createLangGraphVideoAgentController({
             store: videoProjectStore,

@@ -24,6 +24,7 @@ const iconPaths: Record<EditorIconName, string> = {
     mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 8a7 7 0 0 0 14 0M12 18v3',
     minus: 'M5 12h14',
     music: 'M9 18V5l10-2v13M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3Zm10-2a3 3 0 1 1-3-3 3 3 0 0 1 3 3Z',
+    pause: 'M8 5v14M16 5v14',
     play: 'M8 5v14l11-7-11-7Z',
     plus: 'M5 12h14M12 5v14',
     'redo-2': 'm15 14 5-5-5-5m5 5H9.5a5.5 5.5 0 0 0 0 11H13',

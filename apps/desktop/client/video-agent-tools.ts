@@ -43,6 +43,22 @@ const splitSentences = (text: string) => {
         .filter(Boolean);
 };
 
+const storyboardLabelPattern =
+    /^(?:[-*•\d.\s、]+)?(?:[【[(（]\s*)?(?:分镜\s*\d+|镜头\s*\d+|场景\s*\d+|开场明确主题|展示核心内容|收束行动引导|开场|转场|结尾|画面|旁白|字幕)(?:\s*[】\])）])?\s*[：:]\s*/i;
+const storyboardOnlyLabelPattern =
+    /^(?:[-*•\d.\s、]+)?(?:[【[(（]\s*)?(?:分镜\s*\d+|镜头\s*\d+|场景\s*\d+|开场明确主题|展示核心内容|收束行动引导|开场|转场|结尾|画面|旁白|字幕)(?:\s*[】\])）])?\s*$/i;
+const readableTextPattern = /[\p{L}\p{N}]/u;
+
+const normalizeSpokenLine = (text: string) =>
+    text
+        .trim()
+        .replace(storyboardOnlyLabelPattern, '')
+        .replace(storyboardLabelPattern, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const hasReadableText = (text: string) => readableTextPattern.test(text);
+
 const takeTitle = (text: string) => {
     const compact = text.trim().replace(/\s+/g, '');
 
@@ -52,15 +68,66 @@ const takeTitle = (text: string) => {
 };
 
 const createSubtitleLines = (text: string) => {
-    const compact = text.trim();
+    const compact = normalizeSpokenLine(text);
+
+    if (!compact || !hasReadableText(compact)) return [];
 
     if (compact.length <= 22) return [compact];
 
+    const sentenceChunks: string[] = compact.match(
+        /[^。！？!?；;\n]+[。！？!?；;]?/g
+    ) ?? [compact];
     const lines: string[] = [];
+    let currentLine = '';
 
-    for (let index = 0; index < compact.length; index += 22) {
-        lines.push(compact.slice(index, index + 22));
-    }
+    const pushCurrentLine = () => {
+        if (currentLine && hasReadableText(currentLine)) {
+            lines.push(currentLine);
+        }
+
+        currentLine = '';
+    };
+
+    const appendNaturalChunk = (chunk: string) => {
+        const normalizedChunk = chunk.trim();
+
+        if (!normalizedChunk || !hasReadableText(normalizedChunk)) return;
+
+        const nextLine = `${currentLine}${normalizedChunk}`.trim();
+
+        if (nextLine.length <= 22) {
+            currentLine = nextLine;
+            return;
+        }
+
+        pushCurrentLine();
+        currentLine = normalizedChunk;
+    };
+
+    sentenceChunks.forEach((sentence) => {
+        const normalizedSentence = sentence.trim();
+
+        if (!normalizedSentence || !hasReadableText(normalizedSentence)) {
+            return;
+        }
+
+        if (normalizedSentence.length <= 22) {
+            appendNaturalChunk(normalizedSentence);
+            return;
+        }
+
+        const clauseChunks =
+            normalizedSentence.match(/[^，,、：:]+[，,、：:]?/g) ?? [];
+
+        if (clauseChunks.length <= 1) {
+            appendNaturalChunk(normalizedSentence);
+            return;
+        }
+
+        clauseChunks.forEach(appendNaturalChunk);
+    });
+
+    pushCurrentLine();
 
     return lines;
 };
@@ -73,10 +140,29 @@ const createSceneScripts = (input: VideoCreationInput) => {
     const summary = input.prompt.trim();
 
     return [
-        `开场明确主题：${summary}`,
-        `展示核心内容：${summary}`,
-        `收束行动引导：${summary}`
+        `先把重点说清楚，${summary}`,
+        '接下来用几个连续镜头把内容讲透，让观众能顺着节奏看下去。',
+        '最后用清晰的配音和字幕收束，让这条视频可以直接进入精修。'
     ];
+};
+
+const normalizePlannedSceneSpeech = (scene: PlannedScene): PlannedScene => {
+    const subtitleLines = scene.subtitleLines
+        .flatMap((line) => createSubtitleLines(line))
+        .filter(Boolean);
+    const fallbackLines = createSubtitleLines(scene.script);
+    const nextSubtitleLines =
+        subtitleLines.length > 0
+            ? subtitleLines
+            : fallbackLines.length > 0
+              ? fallbackLines
+              : ['这一段先把重点讲清楚，让观众继续看下去。'];
+
+    return {
+        ...scene,
+        script: nextSubtitleLines.join('\n'),
+        subtitleLines: nextSubtitleLines
+    };
 };
 
 const createBrief = ({
@@ -100,18 +186,13 @@ const createBrief = ({
 
 const createProjectScenes = ({
     matches,
-    scenes,
     subtitleIdsBySceneId,
-    voices
+    timedScenes
 }: {
     matches: AssetMatchResult[];
-    scenes: PlannedScene[];
     subtitleIdsBySceneId: Map<string, string[]>;
-    voices: VoiceSynthesisResult[];
+    timedScenes: TimedScene[];
 }): VideoProject['scenes'] => {
-    const voiceAssetIdBySceneId = new Map(
-        voices.map((voice) => [voice.sceneId, voice.assetId])
-    );
     const matchedVideoAssetIdsBySceneId = new Map(
         matches.map((match) => [
             match.sceneId,
@@ -119,20 +200,124 @@ const createProjectScenes = ({
         ])
     );
 
-    return scenes.map((scene) => ({
-        durationMs: scene.durationMs,
+    return timedScenes.map(({ durationMs, scene, segments }) => ({
+        durationMs,
         goal: scene.goal,
         id: scene.id,
         index: scene.index,
         matchedVideoAssetIds: matchedVideoAssetIdsBySceneId.get(scene.id) ?? [],
         notes: '由本地 LangGraph runner 生成',
-        script: scene.script,
+        script: createSceneVoiceScript(scene),
         subtitleIds: subtitleIdsBySceneId.get(scene.id) ?? [],
         title: scene.title,
         visualIntent: scene.visualIntent,
-        voiceAssetId:
-            voiceAssetIdBySceneId.get(scene.id) ?? `voice_asset_${scene.id}`
+        voiceAssetId: segments[0]?.voice.assetId ?? `voice_asset_${scene.id}`
     }));
+};
+
+type TimedVoiceSegment = {
+    durationMs: number;
+    endMs: number;
+    lineIndex: number;
+    startMs: number;
+    text: string;
+    voice: VoiceSynthesisResult;
+};
+
+type TimedScene = {
+    durationMs: number;
+    endMs: number;
+    scene: PlannedScene;
+    segments: TimedVoiceSegment[];
+    startMs: number;
+};
+
+const createSceneVoiceScript = (scene: PlannedScene) =>
+    scene.subtitleLines.join('\n') || scene.script;
+
+const createVoiceSegmentKey = ({
+    lineIndex,
+    sceneId
+}: {
+    lineIndex: number;
+    sceneId: string;
+}) => `${sceneId}:${lineIndex}`;
+
+const createTimedScenes = ({
+    scenes,
+    voices
+}: {
+    scenes: PlannedScene[];
+    voices: VoiceSynthesisResult[];
+}): TimedScene[] => {
+    const voicesBySceneLine = new Map<string, VoiceSynthesisResult>();
+
+    voices.forEach((voice) => {
+        const key = createVoiceSegmentKey({
+            lineIndex: voice.lineIndex,
+            sceneId: voice.sceneId
+        });
+
+        if (voicesBySceneLine.has(key)) {
+            throw new Error(
+                `分镜 ${voice.sceneId} 第 ${voice.lineIndex + 1} 段存在重复配音结果`
+            );
+        }
+
+        voicesBySceneLine.set(key, voice);
+    });
+
+    let timelineCursorMs = 0;
+
+    return scenes.map((scene) => {
+        const sceneStartMs = timelineCursorMs;
+        let segmentCursorMs = sceneStartMs;
+        const segments = scene.subtitleLines.map((text, lineIndex) => {
+            const voice = voicesBySceneLine.get(
+                createVoiceSegmentKey({
+                    lineIndex,
+                    sceneId: scene.id
+                })
+            );
+
+            if (!voice) {
+                throw new Error(
+                    `缺少分镜 ${scene.id} 第 ${lineIndex + 1} 段字幕对应的配音结果`
+                );
+            }
+
+            if (voice.text !== text) {
+                throw new Error(
+                    `分镜 ${scene.id} 第 ${lineIndex + 1} 段配音文本与字幕文本不一致`
+                );
+            }
+
+            const durationMs = Math.max(1, voice.durationMs);
+            const startMs = segmentCursorMs;
+            const endMs = startMs + durationMs;
+            segmentCursorMs = endMs;
+
+            return {
+                durationMs,
+                endMs,
+                lineIndex,
+                startMs,
+                text,
+                voice
+            };
+        });
+        const sceneEndMs = segmentCursorMs;
+        const durationMs = sceneEndMs - sceneStartMs;
+        timelineCursorMs = sceneEndMs;
+
+        return {
+            durationMs,
+            endMs: sceneEndMs,
+            scene,
+            segments,
+            startMs: sceneStartMs
+        };
+    });
 };
 
 export const createDesktopVideoAgentTools = ({
@@ -168,10 +353,6 @@ export const createDesktopVideoAgentTools = ({
         }) => {
             const safeRunId = createSafeId(input.runId);
             const createdAt = now();
-            const totalDurationMs = scenes.reduce(
-                (total, scene) => total + scene.durationMs,
-                0
-            );
             const assetById = new Map(
                 assets.map((asset) => [asset.assetId, asset])
             );
@@ -224,24 +405,24 @@ export const createDesktopVideoAgentTools = ({
 
                 return subtitles;
             });
+            const timedScenes = createTimedScenes({ scenes, voices });
+            const totalDurationMs = timedScenes.reduce(
+                (total, scene) => total + scene.durationMs,
+                0
+            );
             const projectScenes = createProjectScenes({
                 matches,
-                scenes,
                 subtitleIdsBySceneId,
-                voices
+                timedScenes
             });
-            let cursorMs = 0;
-            const videoClips = scenes.map((scene, index) => {
+            const videoClips = timedScenes.map((timedScene, index) => {
+                const { durationMs, endMs, scene, startMs } = timedScene;
                 const match = matches.find((item) => item.sceneId === scene.id);
                 const assetId =
                     match?.rankedAssetIds[0]?.assetId ??
                     videoAssets[index % videoAssets.length]?.id;
                 const sourceDurationMs =
-                    assetById.get(assetId ?? '')?.durationMs ??
-                    scene.durationMs;
-                const startMs = cursorMs;
-                const endMs = startMs + scene.durationMs;
-                cursorMs = endMs;
+                    assetById.get(assetId ?? '')?.durationMs ?? durationMs;
 
                 return {
                     assetId: assetId ?? videoAssets[0]!.id,
@@ -257,7 +438,7 @@ export const createDesktopVideoAgentTools = ({
                     sceneId: scene.id,
                     sourceEndMs: Math.max(
                         1,
-                        Math.min(sourceDurationMs, scene.durationMs)
+                        Math.min(sourceDurationMs, durationMs)
                     ),
                     sourceStartMs: 0,
                     startMs,
@@ -269,48 +450,38 @@ export const createDesktopVideoAgentTools = ({
                     }
                 };
             });
-            cursorMs = 0;
-            const voiceClips = scenes.map((scene, index) => {
-                const voice = voices.find((item) => item.sceneId === scene.id);
-                const startMs = cursorMs;
-                const endMs = startMs + scene.durationMs;
-                cursorMs = endMs;
-
-                return {
-                    assetId: voice?.assetId ?? `voice_asset_${scene.id}`,
-                    endMs,
-                    id: `voice_clip_${padIndex(index + 1)}`,
+            const voiceClips = timedScenes.flatMap(({ scene, segments }) =>
+                segments.map((segment) => ({
+                    assetId: segment.voice.assetId,
+                    endMs: segment.endMs,
+                    id: `voice_clip_${scene.id}_${padIndex(
+                        segment.lineIndex + 1
+                    )}`,
                     kind: 'voice' as const,
                     sceneId: scene.id,
-                    startMs,
+                    startMs: segment.startMs,
                     voicePreset: getSelectedVoice?.(input.runId) ?? '温婉学姐'
-                };
-            });
-            cursorMs = 0;
-            const subtitleClips = scenes.flatMap((scene) => {
+                }))
+            );
+            const subtitleClips = timedScenes.flatMap(({ scene, segments }) => {
                 const subtitleIds = subtitleIdsBySceneId.get(scene.id) ?? [];
-                const lineDurationMs = Math.max(
-                    500,
-                    Math.floor(scene.durationMs / subtitleIds.length)
-                );
-                const sceneStartMs = cursorMs;
-                const sceneEndMs = sceneStartMs + scene.durationMs;
-                cursorMs = sceneEndMs;
 
-                return subtitleIds.map((subtitleId, index) => ({
-                    endMs:
-                        index === subtitleIds.length - 1
-                            ? sceneEndMs
-                            : sceneStartMs + lineDurationMs * (index + 1),
-                    id: `subtitle_clip_${scene.id}_${padIndex(index + 1)}`,
+                return segments.map((segment) => ({
+                    endMs: segment.endMs,
+                    id: `subtitle_clip_${scene.id}_${padIndex(
+                        segment.lineIndex + 1
+                    )}`,
                     kind: 'subtitle' as const,
                     sceneId: scene.id,
-                    startMs: sceneStartMs + lineDurationMs * index,
+                    startMs: segment.startMs,
                     styleId: 'subtitle_style_default',
-                    subtitleId,
-                    text:
-                        subtitleAssets.find((item) => item.id === subtitleId)
-                            ?.text ?? scene.script
+                    subtitleId:
+                        subtitleIds[segment.lineIndex] ??
+                        subtitleIds[0] ??
+                        `subtitle_asset_${scene.id}_${padIndex(
+                            segment.lineIndex + 1
+                        )}`,
+                    text: segment.text
                 }));
             });
             const musicAssetId = `music_asset_${safeRunId}`;
@@ -438,10 +609,11 @@ export const createDesktopVideoAgentTools = ({
                   }),
         planScenes: async ({ assets, brief, input }) => {
             if (modelProvider) {
-                return modelProvider.planScenes({
-                    brief,
-                    targetSceneCount: Math.min(Math.max(assets.length, 3), 9)
+                const plannedScenes = await modelProvider.planScenes({
+                    brief
                 });
+
+                return plannedScenes.map(normalizePlannedSceneSpeech);
             }
 
             const scripts = createSceneScripts(input);
@@ -449,6 +621,8 @@ export const createDesktopVideoAgentTools = ({
             return scripts.map((script, index) => {
                 const sceneIndex = index + 1;
                 const id = `scene_${padIndex(sceneIndex)}`;
+
+                const subtitleLines = createSubtitleLines(script);
 
                 return {
                     durationMs:
@@ -460,8 +634,8 @@ export const createDesktopVideoAgentTools = ({
                             : '推进视频叙事信息',
                     id,
                     index: sceneIndex,
-                    script,
-                    subtitleLines: createSubtitleLines(script),
+                    script: subtitleLines.join('\n'),
+                    subtitleLines,
                     title:
                         sceneIndex === 1
                             ? '开场'
@@ -532,35 +706,54 @@ export const createDesktopVideoAgentTools = ({
             const voice = resolveTtsSpeaker(input.runId);
 
             if (!ttsProvider) {
-                return scenes.map((scene, index) => ({
-                    assetId: `voice_asset_${scene.id}`,
-                    durationMs: scene.durationMs,
-                    path: `assets/voices/${input.runId}-${padIndex(index + 1)}.mp3`,
-                    sceneId: scene.id
-                }));
+                return scenes.flatMap((scene, sceneIndex) =>
+                    scene.subtitleLines.map((text, lineIndex) => ({
+                        assetId: `voice_asset_${scene.id}_${padIndex(
+                            lineIndex + 1
+                        )}`,
+                        durationMs: Math.max(800, Math.ceil(text.length * 180)),
+                        lineIndex,
+                        path: `assets/voices/${input.runId}-${padIndex(
+                            sceneIndex + 1
+                        )}-${padIndex(lineIndex + 1)}.mp3`,
+                        sceneId: scene.id,
+                        text
+                    }))
+                );
             }
 
-            return Promise.all(
-                scenes.map(async (scene) => {
+            const voiceResults: VoiceSynthesisResult[] = [];
+
+            for (const scene of scenes) {
+                for (const [lineIndex, text] of scene.subtitleLines.entries()) {
                     const outputPath = path.join(
                         voiceOutputDirectory ?? input.sourceAssetDirectory,
-                        `${createSafeId(input.runId)}-${createSafeId(scene.id)}.mp3`
+                        `${createSafeId(input.runId)}-${createSafeId(
+                            scene.id
+                        )}-${padIndex(lineIndex + 1)}.mp3`
                     );
                     await mkdir(path.dirname(outputPath), { recursive: true });
                     const result = await ttsProvider.synthesizeSpeech({
                         outputPath,
-                        text: scene.script,
+                        text,
                         voice
                     });
-
-                    return {
-                        assetId: `voice_asset_${scene.id}`,
+                    const voiceResult: VoiceSynthesisResult = {
+                        assetId: `voice_asset_${scene.id}_${padIndex(
+                            lineIndex + 1
+                        )}`,
                         durationMs: result.durationMs,
+                        lineIndex,
                         path: result.path,
-                        sceneId: scene.id
+                        sceneId: scene.id,
+                        text
                     };
-                })
-            );
+
+                    voiceResults.push(voiceResult);
+                }
+            }
+
+            return voiceResults;
         },
         validateProject: async ({ project }) => {
             const result = validateVideoProject(project);

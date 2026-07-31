@@ -14,6 +14,8 @@ import { renderToString } from '@vue/server-renderer';
 import TimelinePanel from '../renderer/components/editor/TimelinePanel.vue';
 import {
     createEditorScreenData,
+    createPlaybackStoryboard,
+    createTimelinePlayhead,
     videoProjectToEditor
 } from '../renderer/mappers/video-project-to-editor';
 
@@ -226,9 +228,44 @@ describe('videoProjectToEditor', () => {
             label: '分镜04',
             widthPx: 288
         });
+        expect(data.preview).toMatchObject({
+            alt: 'Scene 01 画面',
+            durationMs: 90000,
+            source: 'magicut-media://project/project_9_scenes/video/video_asset_01',
+            type: 'video'
+        });
+        if (data.preview.type !== 'video') {
+            throw new Error('Expected video preview');
+        }
+        expect(data.preview.segments).toHaveLength(9);
+        expect(data.preview.segments[0]).toMatchObject({
+            endMs: 8000,
+            source: 'magicut-media://project/project_9_scenes/video/video_asset_01',
+            startMs: 0,
+            subtitleCues: [
+                expect.objectContaining({
+                    startMs: 0,
+                    text: '字幕 01-01'
+                }),
+                expect.objectContaining({
+                    startMs: 4000,
+                    text: '字幕 01-02'
+                })
+            ],
+            voiceSource:
+                'magicut-media://project/project_9_scenes/voice/voice_asset_01'
+        });
+        expect(data.preview.segments[1]).toMatchObject({
+            source: 'magicut-media://project/project_9_scenes/video/video_asset_02',
+            startMs: 8000
+        });
         expect(data.timeline.layout.contentMinWidthClassName).toBe(
-            'min-w-[1728px] w-[1728px]'
+            'min-w-[max(100%,1728px)] w-[1728px]'
         );
+        expect(data.timeline.playhead).toEqual({
+            currentTimeMs: 0,
+            progress: 0
+        });
         expect(data.timeline.ticks).toEqual([
             '00:00',
             '00:10',
@@ -264,6 +301,113 @@ describe('videoProjectToEditor', () => {
         expect(html).toContain('Eutopia · 全片背景音乐');
     });
 
+    it('maps multiple voice clips in one scene into preview voice cues', () => {
+        const project = createNineSceneProject();
+        const voiceTrack = project.tracks.find(
+            (track) => track.kind === 'voice'
+        );
+
+        if (!voiceTrack) {
+            throw new Error('Expected voice track');
+        }
+
+        project.assets.voices.splice(
+            0,
+            1,
+            {
+                durationMs: 3000,
+                id: 'voice_asset_01_01',
+                path: 'assets/voices/scene-01-01.mp3',
+                provider: 'volcengine-seed-tts',
+                voice: 'zh_female_gaolengyujie_uranus_bigtts'
+            },
+            {
+                durationMs: 5000,
+                id: 'voice_asset_01_02',
+                path: 'assets/voices/scene-01-02.mp3',
+                provider: 'volcengine-seed-tts',
+                voice: 'zh_female_gaolengyujie_uranus_bigtts'
+            }
+        );
+        voiceTrack.clips.splice(
+            0,
+            1,
+            {
+                assetId: 'voice_asset_01_01',
+                endMs: 3000,
+                id: 'voice_clip_01_01',
+                kind: 'voice',
+                sceneId: 'scene_01',
+                startMs: 0,
+                voicePreset: 'zh_female_gaolengyujie_uranus_bigtts'
+            },
+            {
+                assetId: 'voice_asset_01_02',
+                endMs: 8000,
+                id: 'voice_clip_01_02',
+                kind: 'voice',
+                sceneId: 'scene_01',
+                startMs: 3000,
+                voicePreset: 'zh_female_gaolengyujie_uranus_bigtts'
+            }
+        );
+
+        const data = videoProjectToEditor(project);
+
+        if (data.preview.type !== 'video') {
+            throw new Error('Expected video preview');
+        }
+
+        expect(data.preview.segments[0]?.voiceCues).toEqual([
+            {
+                endMs: 3000,
+                id: 'voice_clip_01_01',
+                source: 'magicut-media://project/project_9_scenes/voice/voice_asset_01_01',
+                startMs: 0
+            },
+            {
+                endMs: 8000,
+                id: 'voice_clip_01_02',
+                source: 'magicut-media://project/project_9_scenes/voice/voice_asset_01_02',
+                startMs: 3000
+            }
+        ]);
+        expect(data.timeline.clipsByTrack.voice[0]?.label).toBe('旁白01-01');
+        expect(data.timeline.clipsByTrack.voice[1]?.label).toBe('旁白01-02');
+    });
+
+    it('derives the active storyboard and playhead from playback time', () => {
+        const data = videoProjectToEditor(createNineSceneProject());
+        const storyboard = createPlaybackStoryboard({
+            currentTimeMs: 12_000,
+            storyboard: data.storyboard
+        });
+
+        expect(storyboard.summary.meta).toBe(
+            '9 段分镜 · 01:30 · 当前 00:08-00:20'
+        );
+        expect(storyboard.items.map((item) => item.tone)).toEqual([
+            'default',
+            'current',
+            'default',
+            'default',
+            'default',
+            'default',
+            'default',
+            'default',
+            'default'
+        ]);
+        expect(
+            createTimelinePlayhead({
+                currentTimeMs: 45_000,
+                durationMs: data.preview.durationMs
+            })
+        ).toEqual({
+            currentTimeMs: 45_000,
+            progress: 0.5
+        });
+    });
+
     it('falls back to the existing static editor data when no project is loaded', () => {
         const data = createEditorScreenData();
 
@@ -272,5 +416,6 @@ describe('videoProjectToEditor', () => {
         expect(data.timeline.clipsByTrack.music[0]?.label).toBe(
             'Eutopia · 全片背景音乐'
         );
+        expect(data.preview.type).toBe('image');
     });
 });
