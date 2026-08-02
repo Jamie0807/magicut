@@ -113,7 +113,7 @@ export const createTimelinePlayhead = ({
 
     return {
         currentTimeMs: nextCurrentTimeMs,
-        progress: Number((nextCurrentTimeMs / durationMs).toFixed(4))
+        progress: nextCurrentTimeMs / durationMs
     };
 };
 

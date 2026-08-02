@@ -17,6 +17,10 @@ import type {
     TimelineTrack,
     TimelineTrackKind
 } from '../../types/editor-screen';
+import {
+    calculateTimelinePointerTimeMs,
+    formatTimelinePointerTime
+} from '../../utils/timelinePointer';
 
 import IconButton from './IconButton.vue';
 import IconGlyph from './IconGlyph.vue';
@@ -60,6 +64,7 @@ const PLAYHEAD_CONTENT_START_PX = 200;
 const PLAYHEAD_LINE_OFFSET_PX = 9;
 const PLAYHEAD_SCROLL_LEADING_PADDING_PX = 24;
 const PLAYHEAD_SCROLL_TRAILING_PADDING_PX = 96;
+const FALLBACK_TIMELINE_DURATION_MS = 90_000;
 
 const fallbackTimelineData: TimelineData = {
     clipsByTrack: timelineClipsByTrack,
@@ -75,6 +80,13 @@ const fallbackTimelineData: TimelineData = {
 
 const props = defineProps<{
     data?: TimelineData;
+    durationMs?: number;
+    hoverTimeMs?: number;
+}>();
+const emit = defineEmits<{
+    pointerTimeClear: [];
+    pointerTimeCommit: [timeMs: number];
+    pointerTimePreview: [timeMs: number];
 }>();
 const timelineData = computed(() => props.data ?? fallbackTimelineData);
 const scrollContainerRef = useTemplateRef<HTMLDivElement>('scrollContainerRef');
@@ -82,8 +94,11 @@ const scrollLeftPx = shallowRef(0);
 const contentWidthPx = computed(
     () => timelineData.value.layout.contentWidthPx ?? 1728
 );
-const playheadX = computed(() =>
-    Math.round(contentWidthPx.value * timelineData.value.playhead.progress)
+const durationMs = computed(
+    () => props.durationMs ?? FALLBACK_TIMELINE_DURATION_MS
+);
+const playheadX = computed(
+    () => contentWidthPx.value * timelineData.value.playhead.progress
 );
 
 const trackRows = computed(() =>
@@ -99,6 +114,31 @@ const clipStyle = (clip: TimelineClip): CSSProperties => ({
 
 const handleTimelineScroll = (event: Event) => {
     scrollLeftPx.value = (event.currentTarget as HTMLDivElement).scrollLeft;
+};
+
+const calculateEventTimeMs = (event: MouseEvent | PointerEvent) => {
+    const scrollContainer = event.currentTarget as HTMLDivElement;
+    const rect = scrollContainer.getBoundingClientRect();
+
+    return calculateTimelinePointerTimeMs({
+        clientX: event.clientX,
+        contentWidthPx: contentWidthPx.value,
+        durationMs: durationMs.value,
+        scrollContainerLeft: rect.left,
+        scrollLeft: scrollContainer.scrollLeft
+    });
+};
+
+const handleTimelineClick = (event: MouseEvent) => {
+    emit('pointerTimeCommit', calculateEventTimeMs(event));
+};
+
+const handleTimelinePointerMove = (event: PointerEvent) => {
+    emit('pointerTimePreview', calculateEventTimeMs(event));
+};
+
+const handleTimelinePointerLeave = () => {
+    emit('pointerTimeClear');
 };
 
 const timelineContentStyle = computed<CSSProperties | undefined>(() => {
@@ -158,11 +198,35 @@ const playheadStyle = computed<CSSProperties>(() => {
     const visiblePlayheadX = playheadX.value - scrollLeftPx.value;
 
     return {
-        left: `calc(${PLAYHEAD_CONTENT_START_PX}px - ${PLAYHEAD_LINE_OFFSET_PX}px + ${Math.round(
-            visiblePlayheadX
-        )}px)`
+        left: `calc(${PLAYHEAD_CONTENT_START_PX}px - ${PLAYHEAD_LINE_OFFSET_PX}px)`,
+        transform: `translateX(${visiblePlayheadX}px)`
     };
 });
+
+const hoverPlayheadTimeMs = computed(() =>
+    props.hoverTimeMs === undefined || durationMs.value <= 0
+        ? undefined
+        : Math.min(Math.max(props.hoverTimeMs, 0), durationMs.value)
+);
+
+const hoverPlayheadStyle = computed<CSSProperties>(() => {
+    const clampedTimeMs = hoverPlayheadTimeMs.value ?? 0;
+    const progress =
+        durationMs.value > 0 ? clampedTimeMs / durationMs.value : 0;
+    const visiblePlayheadX =
+        contentWidthPx.value * progress - scrollLeftPx.value;
+
+    return {
+        left: `calc(${PLAYHEAD_CONTENT_START_PX}px - ${PLAYHEAD_LINE_OFFSET_PX}px)`,
+        transform: `translateX(${visiblePlayheadX}px)`
+    };
+});
+
+const hoverPlayheadLabel = computed(() =>
+    hoverPlayheadTimeMs.value === undefined
+        ? ''
+        : formatTimelinePointerTime(hoverPlayheadTimeMs.value)
+);
 
 watch([contentWidthPx, playheadX], () => {
     const scrollContainer = scrollContainerRef.value;
@@ -280,7 +344,10 @@ watch([contentWidthPx, playheadX], () => {
             <div
                 ref="scrollContainerRef"
                 data-timeline-scroll-container="true"
-                class="col-start-2 row-start-1 row-span-5 min-w-0 overflow-x-auto overflow-y-hidden"
+                class="col-start-2 row-start-1 row-span-5 min-w-0 cursor-crosshair overflow-x-auto overflow-y-hidden"
+                @click="handleTimelineClick"
+                @pointerleave="handleTimelinePointerLeave"
+                @pointermove="handleTimelinePointerMove"
                 @scroll="handleTimelineScroll"
             >
                 <div
@@ -386,13 +453,32 @@ watch([contentWidthPx, playheadX], () => {
             :style="playheadStyle"
             :data-playhead-progress="timelineData.playhead.progress"
             :data-playhead-scroll-left="scrollLeftPx"
-            class="absolute top-[35px] h-[237px] w-5 transition-[left] duration-200 ease-out"
+            class="absolute top-[35px] h-[237px] w-5 will-change-transform"
         >
             <span
                 class="absolute top-0 left-[3px] h-[14px] w-[14px] rounded-full border-[3px] border-[#06372F] bg-[#F05F73]"
             />
             <span
                 class="absolute top-[7px] left-[9px] h-[230px] w-0.5 bg-[#F05F73]"
+            />
+        </div>
+        <div
+            v-if="hoverPlayheadTimeMs !== undefined"
+            :style="hoverPlayheadStyle"
+            :data-hover-time-ms="hoverPlayheadTimeMs"
+            data-timeline-hover-playhead="true"
+            class="pointer-events-none absolute top-[35px] h-[237px] w-5 will-change-transform"
+        >
+            <span
+                class="absolute top-[-28px] left-1/2 -translate-x-1/2 rounded-md border border-[#F6B84B]/50 bg-[#1B1710] px-1.5 py-0.5 font-['Geist_Mono'] text-[10px] font-bold text-[#F6B84B] shadow-[0_8px_18px_rgba(0,0,0,0.32)]"
+            >
+                {{ hoverPlayheadLabel }}
+            </span>
+            <span
+                class="absolute top-0 left-[6px] h-[14px] w-[8px] rounded-full bg-[#F6B84B]"
+            />
+            <span
+                class="absolute top-[7px] left-[9px] h-[230px] w-0.5 bg-[#F6B84B]/80"
             />
         </div>
     </section>

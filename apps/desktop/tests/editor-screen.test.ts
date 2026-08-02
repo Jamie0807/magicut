@@ -12,10 +12,18 @@ import ConfigPanel from '../renderer/components/config/ConfigPanel.vue';
 import ConfigPresetSwatch from '../renderer/components/config/shared/ConfigPresetSwatch.vue';
 import ModeRail from '../renderer/components/editor/ModeRail.vue';
 import PreviewPanel from '../renderer/components/editor/PreviewPanel.vue';
+import TimelinePanel from '../renderer/components/editor/TimelinePanel.vue';
 import { editorConfigMode } from '../renderer/constants/config';
 import EditorScreen from '../renderer/pages/EditorScreen.vue';
 import { appRoutes } from '../renderer/router';
+import type { PreviewSegment } from '../renderer/types/editor-screen';
 import { createConfigModeSelectionHandler } from '../renderer/utils/configModeSelection';
+import { advancePlaybackTime } from '../renderer/utils/editorPlayback';
+import {
+    getPreviewSegmentLocalTimeMs,
+    isPreviewSegmentSourceExhausted
+} from '../renderer/utils/previewPlayback';
+import { calculateTimelinePointerTimeMs } from '../renderer/utils/timelinePointer';
 
 const renderEditorScreen = async (props?: Record<string, unknown>) => {
     const app = createSSRApp(EditorScreen, props);
@@ -149,6 +157,32 @@ describe('EditorScreen', () => {
         expect(editorSource).toContain('createPlaybackStoryboard');
         expect(editorSource).toContain('createTimelinePlayhead');
         expect(editorSource).toContain('@toggle-playback');
+    });
+
+    it('wires timeline seek and storyboard seek through the editor screen', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('committedTimeMs');
+        expect(editorSource).toContain('previewTimeMs');
+        expect(editorSource).toContain('hoverPreviewTimeMs');
+        expect(editorSource).toContain('timelineHoverTimeMs');
+        expect(editorSource).toContain('commitPreviewTime');
+        expect(editorSource).toContain('previewTimelineTime');
+        expect(editorSource).toContain('clearTimelineHoverTime');
+        expect(editorSource).toContain('@seek="commitPreviewTime"');
+        expect(editorSource).toContain(
+            '@pointer-time-commit="commitPreviewTime"'
+        );
+        expect(editorSource).toContain(':hover-time-ms="timelineHoverTimeMs"');
+        expect(editorSource).toContain(
+            '@pointer-time-clear="clearTimelineHoverTime"'
+        );
+        expect(editorSource).toContain(
+            '@pointer-time-preview="previewTimelineTime"'
+        );
     });
 
     it('wires project title changes through the editor screen save flow', () => {
@@ -350,10 +384,146 @@ describe('EditorScreen', () => {
         expect(html).toContain('absolute top-[35px] h-[237px] w-5');
         expect(html).toContain('data-playhead-progress="0"');
         expect(html).toContain('data-playhead-scroll-left="0"');
-        expect(html).toContain('left:calc(200px - 9px + 0px);');
+        expect(html).toContain('left:calc(200px - 9px);');
+        expect(html).toContain('transform:translateX(0px);');
+        expect(html).toContain('will-change-transform');
         expect(html).toContain('[app-region:drag]');
         expect(html).toContain('[app-region:no-drag]');
         expect(html).not.toContain('absolute top-[45px] left-[195px]');
+    });
+
+    it('renders timeline hover playhead with a readable time label', async () => {
+        const html = await renderComponent(TimelinePanel, {
+            data: {
+                clipsByTrack: {
+                    music: [],
+                    subtitle: [],
+                    video: [],
+                    voice: []
+                },
+                layout: {
+                    contentGridClassName: 'grid-cols-[200px_minmax(0,1fr)]',
+                    contentMinWidthClassName: 'min-w-[1728px] w-[1728px]',
+                    contentRowsClassName:
+                        'grid-rows-[30px_50px_50px_50px_50px]',
+                    contentWidthPx: 1728,
+                    sectionHeightClassName: 'h-[272px]',
+                    tickWidthClassName: 'w-[192px]',
+                    tickWidthPx: 192,
+                    titleBarHeightClassName: 'h-[42px]'
+                },
+                panel: {
+                    timecode: '00:00 - 01:30',
+                    title: '时间线'
+                },
+                playhead: {
+                    currentTimeMs: 0,
+                    progress: 0
+                },
+                ticks: ['00:00'],
+                tracks: []
+            },
+            durationMs: 90_000,
+            hoverTimeMs: 45_000
+        });
+
+        expect(html).toContain('data-timeline-hover-playhead="true"');
+        expect(html).toContain('data-hover-time-ms="45000"');
+        expect(html).toContain('00:45');
+        expect(html).toContain('translateX(864px)');
+    });
+
+    it('maps timeline pointer coordinates to preview time', () => {
+        expect(
+            calculateTimelinePointerTimeMs({
+                clientX: 300,
+                contentWidthPx: 1728,
+                durationMs: 90_000,
+                scrollContainerLeft: 200,
+                scrollLeft: 0
+            })
+        ).toBe(5_208);
+        expect(
+            calculateTimelinePointerTimeMs({
+                clientX: 50,
+                contentWidthPx: 1728,
+                durationMs: 90_000,
+                scrollContainerLeft: 200,
+                scrollLeft: 0
+            })
+        ).toBe(0);
+        expect(
+            calculateTimelinePointerTimeMs({
+                clientX: 1_000,
+                contentWidthPx: 1728,
+                durationMs: 90_000,
+                scrollContainerLeft: 200,
+                scrollLeft: 1_000
+            })
+        ).toBe(90_000);
+    });
+
+    it('freezes a short source video on its last frame until the next segment', () => {
+        const segment: PreviewSegment = {
+            alt: '短视频分镜',
+            endMs: 10_000,
+            id: 'segment_short_video',
+            source: 'magicut-media://project/project_preview/video/video_short',
+            sourceEndMs: 5_000,
+            sourceStartMs: 0,
+            startMs: 0,
+            subtitleCues: []
+        };
+
+        expect(
+            getPreviewSegmentLocalTimeMs({
+                currentTimeMs: 7_500,
+                segment
+            })
+        ).toBe(5_000);
+    });
+
+    it('detects when a video source is shorter than its segment', () => {
+        const segment: PreviewSegment = {
+            alt: '短视频分镜',
+            endMs: 10_000,
+            id: 'segment_short_video',
+            source: 'magicut-media://project/project_preview/video/video_short',
+            sourceEndMs: 5_000,
+            sourceStartMs: 1_000,
+            startMs: 0,
+            subtitleCues: []
+        };
+
+        expect(
+            isPreviewSegmentSourceExhausted({
+                currentTimeMs: 3_999,
+                segment
+            })
+        ).toBe(false);
+        expect(
+            isPreviewSegmentSourceExhausted({
+                currentTimeMs: 4_000,
+                segment
+            })
+        ).toBe(true);
+    });
+
+    it('advances playback time from the actual animation frame delta', () => {
+        expect(
+            advancePlaybackTime({
+                currentTimeMs: 8_000,
+                durationMs: 90_000,
+                elapsedMs: 16.7
+            })
+        ).toBe(8_016.7);
+        expect(
+            advancePlaybackTime({
+                currentTimeMs: 89_990,
+                durationMs: 90_000,
+                elapsedMs: 50
+            })
+        ).toBe(90_000);
     });
 
     it('renders accessible editing controls', async () => {

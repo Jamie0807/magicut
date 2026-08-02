@@ -10,6 +10,10 @@ import type {
     PreviewSubtitleCue,
     PreviewVoiceCue
 } from '../../types/editor-screen';
+import {
+    getPreviewSegmentLocalTimeMs,
+    isPreviewSegmentSourceExhausted
+} from '../../utils/previewPlayback';
 import IconGlyph from './IconGlyph.vue';
 
 const previewTools: Array<{ label: string; icon: EditorIconName }> = [
@@ -97,30 +101,20 @@ const findActiveVoiceCue = ({
         (cue) => currentTimeMs >= cue.startMs && currentTimeMs < cue.endMs
     );
 
-const getPreviewSegmentLocalTimeMs = ({
-    currentTimeMs,
-    segment
-}: {
-    currentTimeMs: number;
-    segment?: PreviewSegment;
-}) => {
-    if (!segment) return currentTimeMs;
-
-    return segment.sourceStartMs + Math.max(0, currentTimeMs - segment.startMs);
-};
-
 const syncMediaCurrentTime = ({
     element,
+    force = false,
     timeMs
 }: {
     element: HTMLMediaElement | null;
+    force?: boolean;
     timeMs: number;
 }) => {
     if (!element) return;
 
     const nextCurrentTime = timeMs / 1000;
 
-    if (Math.abs(element.currentTime - nextCurrentTime) > 0.3) {
+    if (force || Math.abs(element.currentTime - nextCurrentTime) > 0.3) {
         element.currentTime = nextCurrentTime;
     }
 };
@@ -169,6 +163,12 @@ const voiceLocalTimeMs = computed(() =>
         ? Math.max(0, props.currentTimeMs - activeVoiceCue.value.startMs)
         : localTimeMs.value
 );
+const isVideoSourceExhausted = computed(() =>
+    isPreviewSegmentSourceExhausted({
+        currentTimeMs: props.currentTimeMs,
+        segment: activeSegment.value
+    })
+);
 const timecode = computed(() =>
     formatPreviewTimecode({
         currentTimeMs: props.currentTimeMs,
@@ -206,18 +206,37 @@ watch(
 );
 
 watch(
-    () => [props.isPlaying, mediaSource.value, voiceSource.value] as const,
+    () =>
+        [
+            props.isPlaying,
+            isVideoSourceExhausted.value,
+            localTimeMs.value,
+            mediaSource.value,
+            voiceSource.value
+        ] as const,
     () => {
         const video = videoRef.value;
         const audio = audioRef.value;
 
-        if (props.isPlaying) {
+        if (props.isPlaying && !isVideoSourceExhausted.value) {
             void video?.play().catch((): void => undefined);
             void audio?.play().catch((): void => undefined);
             return;
         }
 
         video?.pause();
+
+        syncMediaCurrentTime({
+            element: video,
+            force: true,
+            timeMs: localTimeMs.value
+        });
+
+        if (props.isPlaying) {
+            void audio?.play().catch((): void => undefined);
+            return;
+        }
+
         audio?.pause();
     },
     { flush: 'post' }
