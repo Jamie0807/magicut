@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    AgentConversationMessageSchema,
     assertVideoProject,
     sampleVideoProject,
     validateVideoProject,
@@ -80,5 +81,48 @@ describe('VideoProject schema', () => {
         expect(() => assertVideoProject(invalidProject)).toThrow(
             'Track video contains invalid clip kind voice'
         );
+    });
+
+    it('accepts persisted agent conversation messages in AI metadata', () => {
+        const project: VideoProject = structuredClone(sampleVideoProject);
+        const conversation: NonNullable<VideoProject['ai']['conversation']> = [
+            {
+                blocks: [
+                    {
+                        items: [
+                            {
+                                detail: '加载素材和文稿',
+                                label: '01 准备阶段',
+                                status: 'completed'
+                            },
+                            {
+                                detail: '生成分镜并等待确认',
+                                label: '02 创建分镜',
+                                status: 'waiting'
+                            }
+                        ],
+                        type: 'progress'
+                    },
+                    {
+                        columns: ['分镜', '画面意图', '口播字幕', '时长'],
+                        rows: [['开场', '产品界面', '介绍 Magicut', '3.2s']],
+                        type: 'table'
+                    }
+                ],
+                content: '请确认分镜方案',
+                createdAt: '2026-06-23T10:00:00.000Z',
+                nodeName: 'scene_planner',
+                role: 'assistant',
+                sequence: 2,
+                sourceEventType: 'approval.required',
+                tone: 'waiting'
+            }
+        ];
+        project.ai.conversation = conversation;
+
+        expect(() =>
+            AgentConversationMessageSchema.parse(conversation[0])
+        ).not.toThrow();
+        expect(validateVideoProject(project).success).toBe(true);
     });
 });

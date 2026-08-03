@@ -85,6 +85,26 @@ class FakeUnavailableStructuredOutputModel implements StructuredChatModel {
     }
 }
 
+class FakeStreamingChatModel extends FakeStructuredChatModel {
+    async *stream(prompt: string) {
+        this.prompts.push(prompt);
+        yield {
+            content: '第一段'
+        };
+        yield {
+            content: [
+                {
+                    text: '第二段'
+                },
+                '第三段'
+            ]
+        };
+        yield {
+            content: 42
+        };
+    }
+}
+
 const expectJsonSchemaCall = (model: {
     structuredOutputCalls: { config: unknown; schema: unknown }[];
 }) => {
@@ -142,6 +162,49 @@ describe('ArkChatModelProvider', () => {
         ]);
         expect(model.prompts[0]).toContain('Create a product launch video');
         expectJsonSchemaCall(model);
+    });
+
+    it('streams public report chunks and returns the accumulated report', async () => {
+        const model = new FakeStreamingChatModel([]);
+        const provider = new ArkChatModelProvider({
+            env: agentEnv,
+            model
+        });
+        const deltas: string[] = [];
+
+        const report = await provider.streamReport(
+            {
+                context: '素材数量：3',
+                prompt: '介绍 Magicut 智能剪辑',
+                title: '内容理解'
+            },
+            (delta) => {
+                deltas.push(delta);
+            }
+        );
+
+        expect(report).toBe('第一段第二段第三段');
+        expect(deltas).toEqual(['第一段', '第二段第三段']);
+        expect(model.prompts.at(-1)).toContain('Magicut');
+        expect(model.prompts.at(-1)).toContain('不要输出隐藏推理链');
+        expect(model.prompts.at(-1)).toContain('介绍 Magicut 智能剪辑');
+    });
+
+    it('rejects public report streaming when the chat model has no stream API', async () => {
+        const provider = new ArkChatModelProvider({
+            env: agentEnv,
+            model: new FakeStructuredChatModel([])
+        });
+
+        await expect(
+            provider.streamReport(
+                {
+                    prompt: '介绍 Magicut',
+                    title: '内容理解'
+                },
+                () => undefined
+            )
+        ).rejects.toThrow('Chat model does not support streaming');
     });
 
     it('normalizes structured output schema errors', async () => {

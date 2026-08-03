@@ -1,5 +1,7 @@
 export { sampleVideoProject } from './fixtures/sample-project';
 export {
+    AgentConversationBlockSchema,
+    AgentConversationMessageSchema,
     AiRunMetadataSchema,
     CanvasConfigSchema,
     MusicClipSchema,
@@ -16,6 +18,8 @@ export {
     VoiceClipSchema
 } from './schema';
 export type {
+    AgentConversationBlock,
+    AgentConversationMessage,
     AiRunMetadata,
     CanvasConfig,
     MusicClip,

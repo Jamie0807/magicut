@@ -2,6 +2,7 @@ import type { VideoProject } from '@magicut/video-project';
 
 import type { CreativeBrief } from '../prompts/creative-brief';
 import type { PlannedScene } from '../prompts/scene-planner';
+import type { ModelReportInput } from '../providers/model-provider';
 
 export type AssetAnalysis = {
     assetId: string;
@@ -80,6 +81,10 @@ export type VideoAgentTools = {
     scanAssets: (input: {
         input: VideoCreationInput;
     }) => Promise<AssetAnalysis[]>;
+    streamReport?: (
+        input: ModelReportInput,
+        emitDelta: (delta: string) => void | Promise<void>
+    ) => Promise<string>;
     synthesizeVoice: (input: {
         brief: CreativeBrief;
         input: VideoCreationInput;

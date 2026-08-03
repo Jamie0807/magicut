@@ -8,10 +8,10 @@ describe('createMainWindowOptions', () => {
             preloadPath: '/tmp/preload.js'
         });
 
-        expect(options.width).toBe(1280);
-        expect(options.height).toBe(800);
-        expect(options.minWidth).toBe(1280);
-        expect(options.minHeight).toBe(720);
+        expect(options.width).toBe(1480);
+        expect(options.height).toBe(940);
+        expect(options.minWidth).toBe(1480);
+        expect(options.minHeight).toBe(940);
         expect(options.frame).toBe(false);
         expect(options.titleBarStyle).toBe('hidden');
         expect(options.autoHideMenuBar).toBe(true);

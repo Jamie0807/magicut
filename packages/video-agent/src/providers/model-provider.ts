@@ -17,11 +17,21 @@ export type TextEmbedding = {
     text: string;
 };
 
+export type ModelReportInput = {
+    context?: string;
+    prompt: string;
+    title: string;
+};
+
 export type ModelProvider = {
     describeFrames: (input: {
         frames: FrameDescriptionInput[];
     }) => Promise<FrameDescription[]>;
     embedTexts: (input: { texts: string[] }) => Promise<TextEmbedding[]>;
+    streamReport?: (
+        input: ModelReportInput,
+        emitDelta: (delta: string) => void | Promise<void>
+    ) => Promise<string>;
     generateCreativeBrief: (
         input: CreativeBriefInput
     ) => Promise<CreativeBrief>;

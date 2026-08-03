@@ -26,6 +26,23 @@ export type AgentRunEvent =
           type: 'node.failed';
       })
     | (AgentRunEventBase & {
+          messageId: string;
+          nodeName: string;
+          title: string;
+          type: 'model.stream.started';
+      })
+    | (AgentRunEventBase & {
+          delta: string;
+          messageId: string;
+          nodeName: string;
+          type: 'model.stream.delta';
+      })
+    | (AgentRunEventBase & {
+          messageId: string;
+          nodeName: string;
+          type: 'model.stream.completed';
+      })
+    | (AgentRunEventBase & {
           approval: {
               payload: unknown;
               type: string;

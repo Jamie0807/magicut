@@ -702,6 +702,11 @@ export const createDesktopVideoAgentTools = ({
                 };
             });
         },
+        streamReport: async (input, emitDelta) => {
+            if (!modelProvider?.streamReport) return '';
+
+            return modelProvider.streamReport(input, emitDelta);
+        },
         synthesizeVoice: async ({ input, scenes }) => {
             const voice = resolveTtsSpeaker(input.runId);
 

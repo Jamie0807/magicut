@@ -22,6 +22,8 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 - LangGraph 风格的视频创作 agent 包 `@magicut/video-agent`。
 - 桌面端创建页、工作台项目列表、编辑器基础界面。
 - 本地素材目录扫描、视频素材匹配、分镜规划、TTS 配音、工程保存的基础链路。
+- 独立智能体运行页 `/create/runs/:runId`，用于展示创建过程、分镜确认、阶段进度和完成后的编辑器入口。
+- Agent 运行事件支持 `model.stream.*` 流式公开阶段报告，并可把运行会话持久化到视频工程的 `ai.conversation`。
 - `magicut-media://` 本地媒体协议，用于在 Electron 中预览项目视频、配音和缩略图素材。
 - 编辑器内真实素材预览、播放/暂停、字幕浮层、时间线播放头和分镜高亮。
 
@@ -48,8 +50,18 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 - 桌面工程：Electron Forge `7.10.2`，负责开发启动、打包、maker 配置和 Vite 插件集成。
 - 构建工具：Vite `7.1.12` + `@vitejs/plugin-vue` `6.0.1`，分别支撑 renderer、main、preload 的开发与构建。
 - 前端框架：Vue `3.5.22` + Vue Router `4.5.1`。
-- 样式方案：Tailwind CSS `4.1.x` + `@tailwindcss/vite`。
+- 状态管理：当前没有引入 Pinia 或 Vuex，主要使用 Vue 3 Composition API 的 `shallowRef`、`computed`、`watch` 以及少量手写轻量 store。
+- 路由方案：Vue Router 4 + `createWebHashHistory()`，适配 Electron 桌面端本地路由。
+- 样式方案：Tailwind CSS `4.1.x` + `@tailwindcss/vite`，使用 Tailwind v4 CSS-first 入口和组件内 utility class。
 - 测试工具：Vitest，用于桌面端流程、IPC、媒体协议和核心 UI 状态测试。
+
+### 前端状态、路由与样式
+
+- 页面局部状态直接保留在 Vue SFC 中，例如创建页、工作台、编辑器播放状态和配置面板状态。
+- 跨页面共享状态目前只在必要处抽成轻量模块 store，例如 `apps/desktop/renderer/stores/agent-run-store.ts` 负责 agent run 事件聚合、确认/取消、运行页状态和会话持久化。
+- 当前阶段暂不使用 Pinia；后续如果项目列表缓存、当前项目、agent run、用户配置、编辑器配置等跨页面状态继续扩大，可以再逐步迁移到 Pinia setup store。
+- 路由集中定义在 `apps/desktop/renderer/router/index.ts`，当前包含创建页、工作台、运行页和编辑器路由。
+- 全局样式入口为 `apps/desktop/renderer/index.css`，通过 `@import 'tailwindcss';` 启用 Tailwind CSS v4，并用 `@layer base` / `@layer utilities` 放置少量全局样式和动画。
 
 ### 智能创作与工程数据
 

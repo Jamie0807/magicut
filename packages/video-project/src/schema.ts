@@ -167,7 +167,66 @@ export const RenderConfigSchema = z.object({
     quality: z.enum(['preview', 'final'])
 });
 
+export const AgentConversationBlockSchema = z.discriminatedUnion('type', [
+    z.object({
+        text: z.string().min(1),
+        type: z.literal('heading')
+    }),
+    z.object({
+        text: z.string().min(1),
+        type: z.literal('paragraph')
+    }),
+    z.object({
+        items: z.array(z.string().min(1)),
+        type: z.literal('bullets')
+    }),
+    z.object({
+        items: z.array(
+            z.object({
+                key: z.string().min(1),
+                value: z.string().min(1)
+            })
+        ),
+        type: z.literal('key-values')
+    }),
+    z.object({
+        columns: z.array(z.string().min(1)),
+        rows: z.array(z.array(z.string())),
+        type: z.literal('table')
+    }),
+    z.object({
+        items: z.array(
+            z.object({
+                detail: z.string().optional(),
+                label: z.string().min(1),
+                status: z.enum([
+                    'cancelled',
+                    'completed',
+                    'failed',
+                    'running',
+                    'waiting'
+                ])
+            })
+        ),
+        type: z.literal('progress')
+    })
+]);
+
+export const AgentConversationMessageSchema = z.object({
+    blocks: z.array(AgentConversationBlockSchema).optional(),
+    content: z.string(),
+    createdAt: isoDateSchema,
+    nodeName: z.string().min(1).optional(),
+    role: z.enum(['assistant', 'system', 'user']),
+    sequence: z.number().int().nonnegative(),
+    sourceEventType: z.string().min(1).optional(),
+    tone: z
+        .enum(['cancelled', 'completed', 'failed', 'running', 'waiting'])
+        .optional()
+});
+
 export const AiRunMetadataSchema = z.object({
+    conversation: z.array(AgentConversationMessageSchema).optional(),
     graphVersion: z.string().min(1),
     provider: z.string().min(1),
     runId: idSchema

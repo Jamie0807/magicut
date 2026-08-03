@@ -7,10 +7,10 @@ type CreateMainWindowOptionsInput = {
 export const createMainWindowOptions = ({
     preloadPath
 }: CreateMainWindowOptionsInput): BrowserWindowConstructorOptions => ({
-    width: 1280,
-    height: 800,
-    minWidth: 1280,
-    minHeight: 720,
+    width: 1480,
+    height: 940,
+    minWidth: 1480,
+    minHeight: 940,
     frame: false,
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,

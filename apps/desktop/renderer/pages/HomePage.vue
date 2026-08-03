@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import {
     defaultVideoAgentCanvas,
@@ -17,6 +18,7 @@ import {
     workspaceHeader
 } from '../constants/workspace';
 import { mapVideoProjectFilesToWorkspaceProjects } from '../mappers/workspace-projects';
+import { startAgentRun } from '../stores/agent-run-store';
 import type { CreateAgentSubmitInput } from '../types/create';
 import type { WorkspaceProject, WorkspaceView } from '../types/workspace';
 
@@ -32,6 +34,7 @@ const props = withDefaults(
 );
 
 const activeView = shallowRef<WorkspaceView>(props.initialView);
+const router = useRouter();
 const agentEvents = shallowRef<DesktopAgentRunEvent[]>([]);
 const activeAgentRunId = shallowRef<string | undefined>();
 const lastAgentSubmitInput = shallowRef<CreateAgentSubmitInput | undefined>();
@@ -117,12 +120,7 @@ const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
     agentEvents.value = [];
     lastAgentSubmitInput.value = input;
 
-    if (typeof window === 'undefined' || !window.magicutAPI?.videoAgent) {
-        appendLocalAgentFailure('智能体接口尚未就绪');
-        return;
-    }
-
-    const result = await window.magicutAPI.videoAgent.start({
+    const result = await startAgentRun({
         ...input,
         canvas: defaultVideoAgentCanvas
     });
@@ -133,6 +131,7 @@ const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
     }
 
     activeAgentRunId.value = result.data.runId;
+    await router.push(`/create/runs/${result.data.runId}`);
 };
 
 const getLatestAgentRunId = () =>

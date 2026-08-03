@@ -71,7 +71,11 @@ export {
     ArkChatModelProvider,
     ModelProviderSchemaError
 } from './providers/ark-chat-model-provider';
-export type { ModelProvider, TextEmbedding } from './providers/model-provider';
+export type {
+    ModelProvider,
+    ModelReportInput,
+    TextEmbedding
+} from './providers/model-provider';
 export {
     CompressionType,
     createTtsMessageFrame,

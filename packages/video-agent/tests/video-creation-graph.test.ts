@@ -78,9 +78,11 @@ const voices: VoiceSynthesisResult[] = [
 ];
 
 const createFakeTools = ({
-    invalidProject = false
+    invalidProject = false,
+    withStreamReport = false
 }: {
     invalidProject?: boolean;
+    withStreamReport?: boolean;
 } = {}) => {
     const calls: string[] = [];
     const tools: VideoAgentTools = {
@@ -142,6 +144,16 @@ const createFakeTools = ({
         }
     };
 
+    if (withStreamReport) {
+        tools.streamReport = async (_input, emitDelta) => {
+            calls.push('streamReport');
+            await emitDelta('我会先理解文稿，');
+            await emitDelta('再拆成可执行分镜。');
+
+            return '我会先理解文稿，再拆成可执行分镜。';
+        };
+    }
+
     return { calls, tools };
 };
 
@@ -181,6 +193,36 @@ describe('video creation graph', () => {
             sequence: 1,
             type: 'run.started'
         });
+    });
+
+    it('emits public model stream reports around graph stages when supported', async () => {
+        const { tools } = createFakeTools({ withStreamReport: true });
+        const { emit, events } = collectEvents();
+        const graph = createVideoCreationGraph({ emit, tools });
+
+        await graph.start(runInput);
+
+        expect(events).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    messageId: 'creative_brief-content-understanding',
+                    nodeName: 'creative_brief',
+                    title: '内容理解',
+                    type: 'model.stream.started'
+                }),
+                expect.objectContaining({
+                    delta: '我会先理解文稿，',
+                    messageId: 'creative_brief-content-understanding',
+                    nodeName: 'creative_brief',
+                    type: 'model.stream.delta'
+                }),
+                expect.objectContaining({
+                    messageId: 'scene_planner-storyboard-breakdown',
+                    nodeName: 'scene_planner',
+                    type: 'model.stream.completed'
+                })
+            ])
+        );
     });
 
     it('resumes after scene approval and outputs a valid VideoProject', async () => {

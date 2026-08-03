@@ -84,6 +84,23 @@ export type DesktopAgentRunEvent =
           type: 'model.delta';
       })
     | (DesktopAgentRunEventBase & {
+          messageId: string;
+          nodeName: string;
+          title: string;
+          type: 'model.stream.started';
+      })
+    | (DesktopAgentRunEventBase & {
+          delta: string;
+          messageId: string;
+          nodeName: string;
+          type: 'model.stream.delta';
+      })
+    | (DesktopAgentRunEventBase & {
+          messageId: string;
+          nodeName: string;
+          type: 'model.stream.completed';
+      })
+    | (DesktopAgentRunEventBase & {
           approval: {
               payload: unknown;
               type: string;

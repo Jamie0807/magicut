@@ -28,7 +28,11 @@ import {
     ScenePlanResponseSchema
 } from '../prompts/scene-planner';
 
-import type { ModelProvider, TextEmbedding } from './model-provider';
+import type {
+    ModelProvider,
+    ModelReportInput,
+    TextEmbedding
+} from './model-provider';
 
 type ModelProviderTask =
     | 'assetMatcher'
@@ -45,6 +49,9 @@ export type ArkProviderEvent = {
 };
 
 export type StructuredChatModel = {
+    stream?: (
+        prompt: string
+    ) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
     withStructuredOutput: <T>(
         schema: ZodType<T>,
         config: StructuredOutputOptions
@@ -176,6 +183,53 @@ const createStructuredOutputOptions = ({
     };
 };
 
+const isTextContentPart = (part: unknown): part is { text: string } =>
+    Boolean(
+        part &&
+            typeof part === 'object' &&
+            'text' in part &&
+            typeof (part as { text?: unknown }).text === 'string'
+    );
+
+const extractStreamContent = (chunk: unknown): string => {
+    const content =
+        chunk && typeof chunk === 'object' && 'content' in chunk
+            ? (chunk as { content?: unknown }).content
+            : chunk;
+
+    if (typeof content === 'string') return content;
+
+    if (Array.isArray(content)) {
+        return content
+            .map((part) => {
+                if (typeof part === 'string') return part;
+                if (isTextContentPart(part)) return part.text;
+
+                return '';
+            })
+            .join('');
+    }
+
+    return '';
+};
+
+const buildPublicReportPrompt = ({
+    context,
+    prompt,
+    title
+}: ModelReportInput) =>
+    [
+        `你是 Magicut 的视频创作智能体，请生成“${title}”阶段的可公开创作报告。`,
+        '只输出给用户看的阶段说明，内容必须依赖用户输入、当前阶段上下文和工具/模型已产生的信息。',
+        '不要套用固定标题，不要机械输出“内容理解 / 方案推导 / 执行说明 / 结果摘要”等固定结构。',
+        '不要输出隐藏推理链、内部思考、自我校验过程或任何密钥。',
+        '文风简洁、具体，使用中文自然段和短列表即可。',
+        context ? `上下文：${context}` : undefined,
+        `用户输入：${prompt}`
+    ]
+        .filter(Boolean)
+        .join('\n');
+
 export class ArkChatModelProvider implements ModelProvider {
     public readonly providerName = 'ark';
     private readonly model: StructuredChatModel;
@@ -270,6 +324,29 @@ export class ArkChatModelProvider implements ModelProvider {
         });
 
         return response.scenes;
+    }
+
+    async streamReport(
+        input: ModelReportInput,
+        emitDelta: (delta: string) => void | Promise<void>
+    ): Promise<string> {
+        if (!this.model.stream) {
+            throw new Error('Chat model does not support streaming');
+        }
+
+        const chunks: string[] = [];
+        const stream = await this.model.stream(buildPublicReportPrompt(input));
+
+        for await (const chunk of stream) {
+            const delta = extractStreamContent(chunk);
+
+            if (!delta) continue;
+
+            chunks.push(delta);
+            await emitDelta(delta);
+        }
+
+        return chunks.join('');
     }
 
     async rankAssetMatches({

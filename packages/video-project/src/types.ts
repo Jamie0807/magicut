@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 
 import type {
+    AgentConversationBlockSchema,
+    AgentConversationMessageSchema,
     AiRunMetadataSchema,
     CanvasConfigSchema,
     MusicClipSchema,
@@ -44,6 +46,14 @@ export type MusicClip = z.infer<typeof MusicClipSchema>;
 export type RenderConfig = z.infer<typeof RenderConfigSchema>;
 
 export type AiRunMetadata = z.infer<typeof AiRunMetadataSchema>;
+
+export type AgentConversationMessage = z.infer<
+    typeof AgentConversationMessageSchema
+>;
+
+export type AgentConversationBlock = z.infer<
+    typeof AgentConversationBlockSchema
+>;
 
 export type VideoProjectValidationResult =
     | {
