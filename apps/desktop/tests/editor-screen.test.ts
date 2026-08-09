@@ -5,7 +5,7 @@ import type { Component } from 'vue';
 import { createSSRApp, h } from 'vue';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
-import { sampleVideoProject } from '@magicut/video-project';
+import { sampleVideoProject, type VideoProject } from '@magicut/video-project';
 import { renderToString } from '@vue/server-renderer';
 
 import ConfigPanel from '../renderer/components/config/ConfigPanel.vue';
@@ -248,6 +248,113 @@ describe('EditorScreen', () => {
         expect(subtitleHtml).toContain('显示字幕');
         expect(musicHtml).toContain('音乐设置');
         expect(panelHtml).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('shows the persisted creation conversation in the visual config rail', async () => {
+        const project: VideoProject = structuredClone(sampleVideoProject);
+        project.ai.conversation = [
+            {
+                blocks: [
+                    {
+                        text: '我会先把文稿拆成镜头目标，再匹配本地素材。',
+                        type: 'paragraph'
+                    }
+                ],
+                content: '我会先把文稿拆成镜头目标，再匹配本地素材。',
+                createdAt: '2026-06-23T08:00:01.000Z',
+                nodeName: 'creative_brief',
+                role: 'assistant',
+                sequence: 1,
+                sourceEventType: 'model.stream.completed',
+                tone: 'completed'
+            },
+            {
+                blocks: [
+                    {
+                        items: [
+                            {
+                                detail: '生成分镜并等待确认',
+                                label: '02 创建分镜',
+                                status: 'completed'
+                            }
+                        ],
+                        type: 'progress'
+                    }
+                ],
+                content: '执行流程已更新',
+                createdAt: '2026-06-23T08:00:02.000Z',
+                role: 'system',
+                sequence: 2,
+                sourceEventType: 'run.progress',
+                tone: 'completed'
+            },
+            {
+                blocks: [
+                    {
+                        columns: ['分镜', '画面意图', '口播字幕', '时长'],
+                        rows: [
+                            [
+                                '开场问题',
+                                '横屏口播画面',
+                                '很多前端同学都在焦虑 AI 怎么学。',
+                                '8.0s'
+                            ]
+                        ],
+                        type: 'table'
+                    }
+                ],
+                content: '请确认分镜方案',
+                createdAt: '2026-06-23T08:00:03.000Z',
+                role: 'assistant',
+                sequence: 3,
+                sourceEventType: 'approval.required',
+                tone: 'waiting'
+            },
+            {
+                content: '确认这个分镜方案，继续生成视频。',
+                createdAt: '2026-06-23T08:00:04.000Z',
+                role: 'user',
+                sequence: 4,
+                sourceEventType: 'user.reply'
+            }
+        ];
+
+        const html = await renderEditorScreen({
+            initialMode: 'visual',
+            project
+        });
+
+        expect(html).toContain('data-visual-conversation-feed="true"');
+        expect(html).toContain('创建过程');
+        expect(html).toContain('4 条');
+        expect(html).toContain('我会先把文稿拆成镜头目标，再匹配本地素材。');
+        expect(html).toContain('02 创建分镜');
+        expect(html).toContain('生成分镜并等待确认');
+        expect(html).toContain('状态：已完成');
+        expect(html).toContain('开场问题');
+        expect(html).toContain('横屏口播画面');
+        expect(html).toContain('确认这个分镜方案，继续生成视频。');
+        expect(html).toContain('data-visual-conversation-message="user"');
+        expect(html).toContain('data-visual-conversation-message="assistant"');
+        expect(html).toContain('data-visual-conversation-message="system"');
+        expect(html).not.toContain('这是一份完整的技术教学口播稿');
+    });
+
+    it('keeps the visual config static analysis fallback without a persisted conversation', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'visual' });
+
+        expect(html).not.toContain('data-visual-conversation-feed="true"');
+        expect(html).toContain('这是一份完整的技术教学口播稿');
+    });
+
+    it('uses a real textarea composer in the visual config rail', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'visual' });
+
+        expect(html).not.toContain('回到底部');
+        expect(html).toContain('textarea');
+        expect(html).toContain('aria-label="输入快捷调整"');
+        expect(html).toContain('placeholder="输入你的任何想法"');
+        expect(html).toContain('resize-none');
     });
 
     it('renders music settings with current track and recommendations', async () => {

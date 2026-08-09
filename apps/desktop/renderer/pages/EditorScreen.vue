@@ -24,10 +24,13 @@ import {
 } from '../utils/editorPlayback';
 
 const props = defineProps<{
+    initialMode?: ConfigMode;
     project?: VideoProject;
 }>();
 
-const activeMode = shallowRef<ConfigMode>(editorConfigMode);
+const activeMode = shallowRef<ConfigMode>(
+    props.initialMode ?? editorConfigMode
+);
 const currentProject = shallowRef<VideoProject | undefined>(props.project);
 const committedTimeMs = shallowRef(0);
 const hoverPreviewTimeMs = shallowRef<number | undefined>();
@@ -187,7 +190,10 @@ watch(
                     :is-playing="isPreviewPlaying"
                     @toggle-playback="togglePlayback"
                 />
-                <ConfigPanel :mode="activeMode" />
+                <ConfigPanel
+                    :conversation="currentProject?.ai.conversation"
+                    :mode="activeMode"
+                />
                 <ModeRail
                     :active-mode="activeMode"
                     @mode-change="activeMode = $event"

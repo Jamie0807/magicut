@@ -1,6 +1,12 @@
+import type { AgentConversationMessage } from '@magicut/video-project';
+
 import type { EditorIconName } from './editor-screen';
 
 export type ConfigMode = 'visual' | 'voice' | 'subtitle' | 'music';
+
+export type ConfigPanelContext = {
+    conversation?: AgentConversationMessage[];
+};
 
 export type ConfigTagPairData = {
     label: string;

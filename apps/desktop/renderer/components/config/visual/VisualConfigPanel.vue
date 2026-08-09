@@ -1,8 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { visualConfigPanel } from '../../../constants/config';
+import type { ConfigPanelContext } from '../../../types/config';
 
 import IconGlyph from '../../editor/IconGlyph.vue';
 import ConfigTagPair from '../shared/ConfigTagPair.vue';
+
+import VisualConversationFeed from './VisualConversationFeed.vue';
+
+const props = defineProps<{
+    context: ConfigPanelContext;
+}>();
+
+const conversation = computed(() => props.context.conversation ?? []);
+const hasConversation = computed(() => conversation.value.length > 0);
 </script>
 
 <template>
@@ -38,23 +50,20 @@ import ConfigTagPair from '../shared/ConfigTagPair.vue';
                 </div>
             </section>
 
+            <VisualConversationFeed
+                v-if="hasConversation"
+                :conversation="conversation"
+            />
             <p
+                v-else
                 class="mx-2 mt-[33px] text-[12.2px] leading-[1.36] font-semibold whitespace-pre-line text-[#D6D8DD]"
             >
                 {{ visualConfigPanel.analysis }}
             </p>
-
-            <button
-                type="button"
-                class="mx-auto mt-2 flex h-8 w-[118px] items-center justify-center gap-2 rounded-full bg-[#2B2D31] text-xs font-bold text-[#A9AFBA]"
-            >
-                <IconGlyph name="arrow-down" class-name="h-[15px] w-[15px]" />
-                {{ visualConfigPanel.returnAction }}
-            </button>
         </div>
 
         <section
-            class="mt-auto h-[129px] w-full shrink-0 rounded-[14px] bg-[#1A1B1E] p-[10px_0_0]"
+            class="mt-auto h-[148px] w-full shrink-0 rounded-[14px] bg-[#1A1B1E] p-[10px_0_0]"
         >
             <div
                 class="flex h-[18px] w-full items-center justify-between px-3 text-xs font-bold text-[#A9AFBA]"
@@ -63,13 +72,15 @@ import ConfigTagPair from '../shared/ConfigTagPair.vue';
                 <IconGlyph name="chevron-up" class-name="h-[18px] w-[18px]" />
             </div>
             <div
-                class="mt-2 flex h-[93px] w-full flex-col justify-between rounded-[10px] border border-[#34363B] p-[10px_12px_12px]"
+                class="mt-2 flex h-[112px] w-full flex-col justify-between rounded-[10px] border border-[#34363B] bg-[#121316] p-[10px_12px_12px] focus-within:border-[#F05F73]/70"
             >
-                <span class="text-xs font-semibold text-[#6F737C]">
-                    {{ visualConfigPanel.quickAdjust.placeholder }}
-                </span>
+                <textarea
+                    aria-label="输入快捷调整"
+                    class="h-[64px] w-full resize-none border-0 bg-transparent p-0 text-xs leading-[18px] font-semibold text-[#D5D8DE] outline-none placeholder:text-[#6F737C]"
+                    :placeholder="visualConfigPanel.quickAdjust.placeholder"
+                />
                 <div
-                    class="flex h-6 w-full items-center justify-between overflow-hidden"
+                    class="flex h-6 w-full items-center justify-between overflow-hidden pt-1"
                 >
                     <div
                         class="flex h-[22px] w-[78px] items-center justify-center gap-1.5 rounded-md bg-[#303136]"
