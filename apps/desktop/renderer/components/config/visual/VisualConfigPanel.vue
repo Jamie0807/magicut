@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, shallowRef } from 'vue';
 
 import { visualConfigPanel } from '../../../constants/config';
 import type { ConfigPanelContext } from '../../../types/config';
@@ -15,6 +15,33 @@ const props = defineProps<{
 
 const conversation = computed(() => props.context.conversation ?? []);
 const hasConversation = computed(() => conversation.value.length > 0);
+const prompt = shallowRef('');
+const selectedScene = computed(() => props.context.selectedScene);
+const canSubmit = computed(
+    () =>
+        Boolean(selectedScene.value?.id) &&
+        prompt.value.trim().length > 0 &&
+        !props.context.isRegeneratingScene
+);
+
+const submit = () => {
+    if (!canSubmit.value || !selectedScene.value) return;
+
+    const nextPrompt = prompt.value.trim();
+
+    prompt.value = '';
+    void props.context.onRegenerateScene?.({
+        prompt: nextPrompt,
+        sceneId: selectedScene.value.id
+    });
+};
+
+const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+
+    event.preventDefault();
+    submit();
+};
 </script>
 
 <template>
@@ -63,7 +90,7 @@ const hasConversation = computed(() => conversation.value.length > 0);
         </div>
 
         <section
-            class="mt-auto h-[148px] w-full shrink-0 rounded-[14px] bg-[#1A1B1E] p-[10px_0_0]"
+            class="mt-auto h-[160px] w-full shrink-0 rounded-[14px] bg-[#1A1B1E] p-[10px_0_0] pb-[14px]"
         >
             <div
                 class="flex h-[18px] w-full items-center justify-between px-3 text-xs font-bold text-[#A9AFBA]"
@@ -72,38 +99,48 @@ const hasConversation = computed(() => conversation.value.length > 0);
                 <IconGlyph name="chevron-up" class-name="h-[18px] w-[18px]" />
             </div>
             <div
-                class="mt-2 flex h-[112px] w-full flex-col justify-between rounded-[10px] border border-[#34363B] bg-[#121316] p-[10px_12px_12px] focus-within:border-[#F05F73]/70"
+                class="mt-2 flex h-[120px] w-full flex-col justify-between rounded-[10px] border border-[#34363B] bg-[#121316] p-[10px_12px_14px] focus-within:border-[#F05F73]/70"
             >
                 <textarea
+                    v-model="prompt"
                     aria-label="输入快捷调整"
-                    class="h-[64px] w-full resize-none border-0 bg-transparent p-0 text-xs leading-[18px] font-semibold text-[#D5D8DE] outline-none placeholder:text-[#6F737C]"
+                    class="h-[70px] w-full resize-none border-0 bg-transparent p-0 text-xs leading-[18px] font-semibold text-[#D5D8DE] outline-none placeholder:text-[#6F737C]"
                     :placeholder="visualConfigPanel.quickAdjust.placeholder"
+                    @keydown="handleKeyDown"
                 />
                 <div
-                    class="flex h-6 w-full items-center justify-between overflow-hidden pt-1"
+                    class="flex h-7 w-full items-center justify-between overflow-hidden pt-1"
                 >
                     <div
-                        class="flex h-[22px] w-[78px] items-center justify-center gap-1.5 rounded-md bg-[#303136]"
+                        v-if="selectedScene"
+                        :data-selected-scene-id="selectedScene.id"
+                        class="flex h-[22px] max-w-[132px] items-center justify-center gap-1.5 rounded-md bg-[#303136] px-2"
                     >
                         <IconGlyph
                             name="image"
                             class-name="h-[14px] w-[14px] text-[#A9AFBA]"
                         />
-                        <span class="text-[11px] font-bold text-[#D5D8DE]">
-                            {{ visualConfigPanel.quickAdjust.linkedShot }}
+                        <span
+                            class="truncate text-[11px] font-bold text-[#D5D8DE]"
+                        >
+                            {{ selectedScene.label }}
                         </span>
                         <button
                             type="button"
                             aria-label="移除关联分镜"
                             class="grid h-3 w-3 place-items-center text-[#A9AFBA]"
+                            @click="props.context.onClearSelectedScene?.()"
                         >
                             <IconGlyph name="x" class-name="h-3 w-3" />
                         </button>
                     </div>
+                    <span v-else aria-hidden="true" />
                     <button
                         type="button"
                         aria-label="发送快捷调整"
-                        class="grid h-[23px] w-[23px] place-items-center rounded-full bg-[#F05F73] text-white"
+                        :disabled="!canSubmit"
+                        class="grid h-[23px] w-[23px] shrink-0 place-items-center rounded-full bg-[#F05F73] text-white transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-45"
+                        @click="submit"
                     >
                         <IconGlyph
                             name="arrow-up"

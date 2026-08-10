@@ -252,7 +252,9 @@ const mapVideoClip = ({
     durationSeconds: formatDurationSeconds(clip.endMs - clip.startMs),
     kind: 'video',
     label: `分镜${getSceneNumber({ project, sceneId: clip.sceneId })}`,
+    sceneId: clip.sceneId,
     showThumbnails: true,
+    startMs: clip.startMs,
     widthPx: toTimelineWidth(clip.endMs - clip.startMs)
 });
 
@@ -409,6 +411,7 @@ const createStoryboard = (project: VideoProject): StoryboardData => {
             return {
                 body,
                 endMs,
+                sceneId: scene.id,
                 startMs,
                 time: `${formatTimelineTime(startMs)}-${formatTimelineTime(endMs)}`,
                 title: `分镜 ${formatTwoDigits(scene.index)}`,

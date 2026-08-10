@@ -6,6 +6,19 @@ export type ConfigMode = 'visual' | 'voice' | 'subtitle' | 'music';
 
 export type ConfigPanelContext = {
     conversation?: AgentConversationMessage[];
+    isRegeneratingScene?: boolean;
+    onClearSelectedScene?: () => void;
+    onRegenerateScene?: (input: {
+        prompt: string;
+        sceneId: string;
+    }) => Promise<void> | void;
+    selectedScene?: {
+        endMs?: number;
+        id: string;
+        label: string;
+        script: string;
+        startMs?: number;
+    };
 };
 
 export type ConfigTagPairData = {

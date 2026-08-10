@@ -87,6 +87,7 @@ const emit = defineEmits<{
     pointerTimeClear: [];
     pointerTimeCommit: [timeMs: number];
     pointerTimePreview: [timeMs: number];
+    sceneSelect: [input: { sceneId: string; startMs: number }];
 }>();
 const timelineData = computed(() => props.data ?? fallbackTimelineData);
 const scrollContainerRef = useTemplateRef<HTMLDivElement>('scrollContainerRef');
@@ -112,6 +113,9 @@ const clipStyle = (clip: TimelineClip): CSSProperties => ({
     width: `${clip.widthPx}px`
 });
 
+const canSelectScene = (clip: TimelineClip) =>
+    typeof clip.sceneId === 'string' && typeof clip.startMs === 'number';
+
 const handleTimelineScroll = (event: Event) => {
     scrollLeftPx.value = (event.currentTarget as HTMLDivElement).scrollLeft;
 };
@@ -131,6 +135,16 @@ const calculateEventTimeMs = (event: MouseEvent | PointerEvent) => {
 
 const handleTimelineClick = (event: MouseEvent) => {
     emit('pointerTimeCommit', calculateEventTimeMs(event));
+};
+
+const handleClipClick = (event: MouseEvent, clip: TimelineClip) => {
+    if (!canSelectScene(clip) || !clip.sceneId) return;
+
+    event.stopPropagation();
+    emit('sceneSelect', {
+        sceneId: clip.sceneId,
+        startMs: clip.startMs ?? 0
+    });
 };
 
 const handleTimelinePointerMove = (event: PointerEvent) => {
@@ -390,21 +404,29 @@ watch([contentWidthPx, playheadX], () => {
                         ]"
                     >
                         <div class="flex h-full items-center gap-0">
-                            <div
+                            <button
                                 v-for="clip in timelineData.clipsByTrack[
                                     track.id
                                 ]"
-                                :key="clip.label"
+                                :key="`${clip.kind}-${clip.sceneId ?? clip.label}-${clip.startMs ?? 'static'}`"
+                                type="button"
                                 :data-timeline-clip-kind="clip.kind"
+                                :data-timeline-clip-start-ms="clip.startMs"
+                                :data-timeline-scene-id="clip.sceneId"
                                 :data-duration-seconds="clip.durationSeconds"
                                 :data-width-px="clip.widthPx"
+                                :disabled="!canSelectScene(clip)"
                                 :title="clip.caption ?? clip.label"
                                 :style="clipStyle(clip)"
                                 :class="[
                                     'flex h-[28px] shrink-0 items-center gap-1.5 overflow-hidden rounded-md border px-2',
+                                    canSelectScene(clip)
+                                        ? 'cursor-pointer'
+                                        : 'cursor-default',
                                     clip.colorClassName,
                                     clipTextClassNames[clip.kind]
                                 ]"
+                                @click="(event) => handleClipClick(event, clip)"
                             >
                                 <span
                                     v-if="clip.kind === 'video'"
@@ -442,7 +464,7 @@ watch([contentWidthPx, playheadX], () => {
                                         ]"
                                     />
                                 </div>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </div>

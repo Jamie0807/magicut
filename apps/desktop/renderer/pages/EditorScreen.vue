@@ -12,12 +12,17 @@ import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
 import {
+    applySceneRegenerationStreamEvent,
+    createSceneRegenerationPendingConversation,
+    resolveSceneVoiceOption
+} from '../mappers/scene-regeneration-conversation';
+import {
     createEditorScreenData,
     createPlaybackStoryboard,
     createTimelinePlayhead
 } from '../mappers/video-project-to-editor';
 import type { ConfigMode } from '../types/config';
-import type { TimelineData } from '../types/editor-screen';
+import type { StoryboardItem, TimelineData } from '../types/editor-screen';
 import {
     advancePlaybackTime,
     createAnimationClock
@@ -35,6 +40,9 @@ const currentProject = shallowRef<VideoProject | undefined>(props.project);
 const committedTimeMs = shallowRef(0);
 const hoverPreviewTimeMs = shallowRef<number | undefined>();
 const isPreviewPlaying = shallowRef(false);
+const isQuickAdjustmentSceneLinked = shallowRef(true);
+const isRegeneratingScene = shallowRef(false);
+const selectedSceneId = shallowRef<string | undefined>();
 const titleSaveStatus = shallowRef(editorHeader.status);
 const editorData = computed(() => createEditorScreenData(currentProject.value));
 const canHoverPreviewTimeline = computed(() => !isPreviewPlaying.value);
@@ -61,6 +69,30 @@ const storyboardData = computed(() =>
 );
 const editorTitle = computed(
     () => currentProject.value?.project.title ?? editorHeader.title
+);
+const selectedStoryboardItem = computed(
+    () =>
+        storyboardData.value.items.find(
+            (item) => item.sceneId === selectedSceneId.value
+        ) ??
+        storyboardData.value.items.find((item) => item.tone === 'current') ??
+        storyboardData.value.items[0]
+);
+const createSelectedSceneContext = (item?: StoryboardItem) => {
+    if (!item?.sceneId) return undefined;
+
+    return {
+        endMs: item.endMs,
+        id: item.sceneId,
+        label: item.title,
+        script: item.body,
+        startMs: item.startMs
+    };
+};
+const selectedScene = computed(() =>
+    isQuickAdjustmentSceneLinked.value
+        ? createSelectedSceneContext(selectedStoryboardItem.value)
+        : undefined
 );
 
 const handleProjectTitleChange = async (title: string) => {
@@ -103,6 +135,118 @@ const commitPreviewTime = (timeMs: number) => {
     hoverPreviewTimeMs.value = undefined;
 };
 
+const handleSceneSelect = ({
+    sceneId,
+    startMs
+}: {
+    sceneId: string;
+    startMs: number;
+}) => {
+    selectedSceneId.value = sceneId;
+    isQuickAdjustmentSceneLinked.value = true;
+    commitPreviewTime(startMs);
+};
+
+const handleRegenerateScene = async ({
+    prompt,
+    sceneId
+}: {
+    prompt: string;
+    sceneId: string;
+}) => {
+    const project = currentProject.value;
+
+    if (!project) return;
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoAgent) {
+        titleSaveStatus.value = '分镜优化失败';
+        return;
+    }
+
+    const requestProject = project;
+    const voiceOption = resolveSceneVoiceOption({
+        project: requestProject,
+        sceneId
+    });
+    const sceneLabel = selectedScene.value?.label ?? sceneId;
+
+    isQuickAdjustmentSceneLinked.value = false;
+    isRegeneratingScene.value = true;
+    titleSaveStatus.value = '正在优化当前分镜';
+    currentProject.value = {
+        ...requestProject,
+        ai: {
+            ...requestProject.ai,
+            conversation: createSceneRegenerationPendingConversation({
+                conversation: requestProject.ai.conversation ?? [],
+                now: () => new Date().toISOString(),
+                prompt,
+                sceneLabel
+            })
+        }
+    };
+
+    const unsubscribe = window.magicutAPI.videoAgent.onEvent((event) => {
+        if (!event.runId.startsWith('regen_')) return;
+
+        if (
+            event.type !== 'model.stream.started' &&
+            event.type !== 'model.stream.delta' &&
+            event.type !== 'model.stream.completed'
+        ) {
+            return;
+        }
+
+        const current = currentProject.value;
+
+        if (!current) return;
+
+        currentProject.value = {
+            ...current,
+            ai: {
+                ...current.ai,
+                conversation: applySceneRegenerationStreamEvent({
+                    conversation: current.ai.conversation ?? [],
+                    event
+                })
+            }
+        };
+    });
+
+    try {
+        const result = await window.magicutAPI.videoAgent.regenerateScene({
+            projectId: requestProject.project.id,
+            prompt,
+            sceneId,
+            selectedVoice: voiceOption.selectedVoice,
+            selectedVoiceType: voiceOption.selectedVoiceType
+        });
+
+        if (result.success === false) {
+            titleSaveStatus.value = '分镜优化失败';
+            return;
+        }
+
+        const loaded = await window.magicutAPI.videoProject.readById(
+            requestProject.project.id
+        );
+
+        if (loaded.success === false) {
+            titleSaveStatus.value = '分镜优化已完成，重新加载失败';
+            return;
+        }
+
+        currentProject.value = loaded.data;
+        selectedSceneId.value = sceneId;
+        titleSaveStatus.value = '刚刚更新 · 已自动保存';
+    } catch {
+        titleSaveStatus.value = '分镜优化失败';
+    } finally {
+        unsubscribe();
+        isRegeneratingScene.value = false;
+    }
+};
+
 const clearHoverPreviewTime = () => {
     hoverPreviewTimeMs.value = undefined;
 };
@@ -131,6 +275,9 @@ watch(
         committedTimeMs.value = 0;
         hoverPreviewTimeMs.value = undefined;
         isPreviewPlaying.value = false;
+        isQuickAdjustmentSceneLinked.value = true;
+        isRegeneratingScene.value = false;
+        selectedSceneId.value = undefined;
         titleSaveStatus.value = editorHeader.status;
     }
 );
@@ -182,6 +329,7 @@ watch(
                 <ScriptPanel
                     :auto-scroll-active-item="isPreviewPlaying"
                     :data="storyboardData"
+                    @scene-select="handleSceneSelect"
                     @seek="commitPreviewTime"
                 />
                 <PreviewPanel
@@ -192,7 +340,11 @@ watch(
                 />
                 <ConfigPanel
                     :conversation="currentProject?.ai.conversation"
+                    :is-regenerating-scene="isRegeneratingScene"
                     :mode="activeMode"
+                    :selected-scene="selectedScene"
+                    @clear-selected-scene="isQuickAdjustmentSceneLinked = false"
+                    @regenerate-scene="handleRegenerateScene"
                 />
                 <ModeRail
                     :active-mode="activeMode"
@@ -206,6 +358,7 @@ watch(
                 @pointer-time-clear="clearTimelineHoverTime"
                 @pointer-time-commit="commitPreviewTime"
                 @pointer-time-preview="previewTimelineTime"
+                @scene-select="handleSceneSelect"
             />
         </div>
     </main>

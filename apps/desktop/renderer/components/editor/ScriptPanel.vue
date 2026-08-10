@@ -17,6 +17,7 @@ const props = defineProps<{
     data?: StoryboardData;
 }>();
 const emit = defineEmits<{
+    sceneSelect: [input: { sceneId: string; startMs: number }];
     seek: [timeMs: number];
 }>();
 const storyboardData = computed(() => props.data ?? fallbackStoryboardData);
@@ -90,8 +91,16 @@ const setItemRef = (key: string, element: Element | null) => {
     itemRefs.value = nextRefs;
 };
 
-const handleCardClick = (seekTimeMs?: number) => {
+const handleCardClick = (item: StoryboardItem, seekTimeMs?: number) => {
     if (seekTimeMs === undefined) return;
+
+    if (item.sceneId) {
+        emit('sceneSelect', {
+            sceneId: item.sceneId,
+            startMs: seekTimeMs
+        });
+        return;
+    }
 
     emit('seek', seekTimeMs);
 };
@@ -132,6 +141,7 @@ watch(activeItemKey, (key) => {
                     :data-storyboard-current="
                         item.tone === 'current' ? 'true' : undefined
                     "
+                    :data-storyboard-scene-id="item.sceneId"
                     :data-storyboard-seek-time="seekTimeMs"
                     :disabled="seekTimeMs === undefined"
                     :class="[
@@ -141,7 +151,7 @@ watch(activeItemKey, (key) => {
                             : 'cursor-pointer hover:border-[#F05F73]/70',
                         cardToneClassNames[item.tone]
                     ]"
-                    @click="handleCardClick(seekTimeMs)"
+                    @click="handleCardClick(item, seekTimeMs)"
                 >
                     <div class="mb-2 flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2">

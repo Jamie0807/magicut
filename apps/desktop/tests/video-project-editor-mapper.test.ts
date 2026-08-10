@@ -221,12 +221,21 @@ describe('videoProjectToEditor', () => {
         expect(data.timeline.clipsByTrack.video[0]).toMatchObject({
             durationSeconds: 8,
             label: '分镜01',
+            sceneId: 'scene_01',
+            startMs: 0,
             widthPx: 154
         });
         expect(data.timeline.clipsByTrack.video[3]).toMatchObject({
             durationSeconds: 15,
             label: '分镜04',
+            sceneId: 'scene_04',
+            startMs: 26000,
             widthPx: 288
+        });
+        expect(data.storyboard.items[0]).toMatchObject({
+            sceneId: 'scene_01',
+            startMs: 0,
+            title: '分镜 01'
         });
         expect(data.preview).toMatchObject({
             alt: 'Scene 01 画面',

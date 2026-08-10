@@ -243,7 +243,7 @@ describe('EditorScreen', () => {
         expect(voiceHtml).toContain('参数调整');
         expect(visualHtml).toContain('快捷调整');
         expect(visualHtml).toContain('输入你的任何想法');
-        expect(visualHtml).toContain('aria-label="移除关联分镜"');
+        expect(visualHtml).toContain('aria-hidden="true"');
         expect(subtitleHtml).toContain('字幕设置');
         expect(subtitleHtml).toContain('显示字幕');
         expect(musicHtml).toContain('音乐设置');
@@ -355,6 +355,71 @@ describe('EditorScreen', () => {
         expect(html).toContain('aria-label="输入快捷调整"');
         expect(html).toContain('placeholder="输入你的任何想法"');
         expect(html).toContain('resize-none');
+    });
+
+    it('links the active scene into the quick adjustment composer', async () => {
+        const html = await renderEditorScreen({
+            initialMode: 'visual',
+            project: sampleVideoProject
+        });
+
+        expect(html).toContain('data-selected-scene-id="scene_001"');
+        expect(html).toContain('分镜 01');
+        expect(html).toContain('aria-label="发送快捷调整"');
+        expect(html).toContain('disabled');
+        expect(html).toContain('pb-[14px]');
+    });
+
+    it('hides the linked scene chip when no scene is selected', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'visual' });
+
+        expect(html).not.toContain('data-selected-scene-id');
+        expect(html).toContain('aria-hidden="true"');
+    });
+
+    it('wires scene selection and regeneration through the editor screen', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const scriptPanelSource = readFileSync(
+            resolve(__dirname, '../renderer/components/editor/ScriptPanel.vue'),
+            'utf8'
+        );
+        const timelinePanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/editor/TimelinePanel.vue'
+            ),
+            'utf8'
+        );
+        const visualPanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/visual/VisualConfigPanel.vue'
+            ),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('handleSceneSelect');
+        expect(editorSource).toContain('handleRegenerateScene');
+        expect(editorSource).toContain('applySceneRegenerationStreamEvent');
+        expect(editorSource).toContain(
+            'createSceneRegenerationPendingConversation'
+        );
+        expect(editorSource).toContain(
+            'window.magicutAPI.videoAgent.regenerateScene'
+        );
+        expect(editorSource).toContain('@scene-select="handleSceneSelect"');
+        expect(editorSource).toContain(
+            '@regenerate-scene="handleRegenerateScene"'
+        );
+        expect(scriptPanelSource).toContain('sceneSelect');
+        expect(scriptPanelSource).toContain('data-storyboard-scene-id');
+        expect(timelinePanelSource).toContain('sceneSelect');
+        expect(timelinePanelSource).toContain('data-timeline-scene-id');
+        expect(visualPanelSource).toContain('onRegenerateScene');
+        expect(visualPanelSource).toContain('prompt.value.trim()');
     });
 
     it('renders music settings with current track and recommendations', async () => {

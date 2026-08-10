@@ -21,6 +21,13 @@ interface Window {
                     event: import('./shared/video-agent').DesktopAgentRunEvent
                 ) => void
             ) => () => void;
+            regenerateScene: (
+                input: import('./shared/video-agent').VideoAgentRegenerateSceneInput
+            ) => Promise<
+                import('./shared/video-agent').VideoAgentOperationResult<
+                    import('./shared/video-agent').VideoAgentResultData
+                >
+            >;
             start: (
                 input: import('./shared/video-agent').VideoAgentStartInput
             ) => Promise<

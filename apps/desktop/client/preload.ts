@@ -6,6 +6,7 @@ import type {
     DesktopAgentRunEvent,
     VideoAgentApprovalInput,
     VideoAgentCancelInput,
+    VideoAgentRegenerateSceneInput,
     VideoAgentStartInput
 } from '../shared/video-agent';
 import { videoAgentIpcChannels } from '../shared/video-agent-channels';
@@ -35,6 +36,8 @@ contextBridge.exposeInMainWorld('magicutAPI', {
                 );
             };
         },
+        regenerateScene: async (input: VideoAgentRegenerateSceneInput) =>
+            ipcRenderer.invoke(videoAgentIpcChannels.regenerateScene, input),
         start: async (input: VideoAgentStartInput) =>
             ipcRenderer.invoke(videoAgentIpcChannels.start, input)
     },

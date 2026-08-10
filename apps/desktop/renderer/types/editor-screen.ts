@@ -45,6 +45,7 @@ export type StoryboardItem = {
     time: string;
     body: string;
     endMs?: number;
+    sceneId?: string;
     startMs?: number;
     tone: StoryboardCardTone;
 };
@@ -83,7 +84,9 @@ export type TimelineClip = {
     durationSeconds: number;
     colorClassName: string;
     caption?: string;
+    sceneId?: string;
     showThumbnails?: boolean;
+    startMs?: number;
     bars?: number;
 };
 

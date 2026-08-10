@@ -27,7 +27,16 @@ export type VideoAgentCancelInput = {
     runId: string;
 };
 
+export type VideoAgentRegenerateSceneInput = {
+    projectId: string;
+    prompt: string;
+    sceneId: string;
+    selectedVoice: string;
+    selectedVoiceType?: string;
+};
+
 export type VideoAgentResultData = {
+    projectId?: string;
     runId: string;
 };
 

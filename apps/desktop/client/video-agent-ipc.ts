@@ -21,11 +21,13 @@ import type {
     VideoAgentApprovalInput,
     VideoAgentCancelInput,
     VideoAgentOperationResult,
+    VideoAgentRegenerateSceneInput,
     VideoAgentResultData,
     VideoAgentStartInput
 } from '../shared/video-agent';
 import { videoAgentIpcChannels } from '../shared/video-agent-channels';
 
+import { regenerateVideoProjectScene } from './video-agent-scene-regeneration';
 import { createDesktopVideoAgentTools } from './video-agent-tools';
 import type { VideoProjectStore } from './video-project-store';
 
@@ -64,6 +66,10 @@ export type VideoAgentIpcController = {
     ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
     cancel: (
         input: VideoAgentCancelInput,
+        emit: VideoAgentEventEmitter
+    ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
+    regenerateScene: (
+        input: VideoAgentRegenerateSceneInput,
         emit: VideoAgentEventEmitter
     ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
     start: (
@@ -126,6 +132,17 @@ const normalizeStartInput = (input: VideoAgentStartInput) => ({
     selectedVoice: input.selectedVoice.trim(),
     selectedVoiceType: input.selectedVoiceType?.trim(),
     sourceAssetDirectory: input.sourceAssetDirectory.trim()
+});
+
+const normalizeRegenerateSceneInput = (
+    input: VideoAgentRegenerateSceneInput
+) => ({
+    ...input,
+    projectId: input.projectId.trim(),
+    prompt: input.prompt.trim(),
+    sceneId: input.sceneId.trim(),
+    selectedVoice: input.selectedVoice.trim(),
+    selectedVoiceType: input.selectedVoiceType?.trim()
 });
 
 const findAgentEnvFilePath = () => {
@@ -323,6 +340,51 @@ export const createDemoVideoAgentController = ({
                 runId: state.runId
             });
         },
+        regenerateScene: async (rawInput, emit) => {
+            const input = normalizeRegenerateSceneInput(rawInput);
+            const state: DemoVideoAgentRunState = {
+                input: {
+                    prompt: input.prompt,
+                    selectedVoice: input.selectedVoice,
+                    selectedVoiceType: input.selectedVoiceType,
+                    sourceAssetDirectory: input.projectId
+                },
+                runId: `regen_${randomUUID()}`,
+                sequence: 0
+            };
+
+            if (!input.projectId || !input.sceneId || !input.prompt) {
+                return failure({
+                    code: 'VALIDATION_FAILED',
+                    message: '请选择分镜并输入优化要求'
+                });
+            }
+
+            for (const nodeName of ['scene_planner', 'asset_matcher', 'tts']) {
+                emitForRun(
+                    state,
+                    {
+                        nodeName,
+                        type: 'node.started'
+                    },
+                    emit
+                );
+            }
+
+            emitForRun(
+                state,
+                {
+                    projectId: input.projectId,
+                    type: 'run.completed'
+                },
+                emit
+            );
+
+            return success({
+                projectId: input.projectId,
+                runId: state.runId
+            });
+        },
         start: async (rawInput, emit) => {
             const input = normalizeStartInput(rawInput);
 
@@ -448,6 +510,18 @@ export const createLangGraphVideoAgentController = ({
             toDesktopGraphEvent({ event, state })
         );
     };
+    let providers: ProviderFactoryResult | undefined;
+    const getProviders = () => {
+        if (providers) return providers;
+
+        providers = createDefaultProviders({
+            loadEnv,
+            modelProvider,
+            ttsProvider
+        });
+
+        return providers;
+    };
     let runner: VideoCreationGraphRunner | undefined;
     const getRunner = () => {
         if (runner) return runner;
@@ -461,21 +535,17 @@ export const createLangGraphVideoAgentController = ({
             return runner;
         }
 
-        const providers = createDefaultProviders({
-            loadEnv,
-            modelProvider,
-            ttsProvider
-        });
+        const runnerProviders = getProviders();
 
         runner = createVideoCreationGraph({
             emit: emitGraphEvent,
             tools: createDesktopVideoAgentTools({
                 getSelectedVoice,
                 getSelectedVoiceType,
-                modelProvider: providers.modelProvider,
+                modelProvider: runnerProviders.modelProvider,
                 now,
                 store,
-                ttsProvider: providers.ttsProvider,
+                ttsProvider: runnerProviders.ttsProvider,
                 voiceOutputDirectory
             })
         });
@@ -579,6 +649,40 @@ export const createLangGraphVideoAgentController = ({
                 runId: input.runId
             });
         },
+        regenerateScene: async (rawInput, emit) => {
+            const input = normalizeRegenerateSceneInput(rawInput);
+
+            if (!input.projectId || !input.sceneId || !input.prompt) {
+                return failure({
+                    code: 'VALIDATION_FAILED',
+                    message: '请选择分镜并输入优化要求'
+                });
+            }
+
+            try {
+                const providers = getProviders();
+                const result = await regenerateVideoProjectScene({
+                    createRunId: () => `regen_${randomUUID()}`,
+                    emit,
+                    input,
+                    modelProvider: providers.modelProvider,
+                    now,
+                    store,
+                    ttsProvider: providers.ttsProvider,
+                    voiceOutputDirectory
+                });
+
+                return success({
+                    projectId: result.project.project.id,
+                    runId: result.runId
+                });
+            } catch (error) {
+                return failure({
+                    code: 'RUN_FAILED',
+                    message: serializeError(error)
+                });
+            }
+        },
         start: async (rawInput, emit) => {
             const input = normalizeStartInput(rawInput);
 
@@ -641,5 +745,11 @@ export const registerVideoAgentIpc = ({
     );
     ipcMain.handle(videoAgentIpcChannels.cancel, (event, input) =>
         controller.cancel(input as VideoAgentCancelInput, emitToRenderer(event))
+    );
+    ipcMain.handle(videoAgentIpcChannels.regenerateScene, (event, input) =>
+        controller.regenerateScene(
+            input as VideoAgentRegenerateSceneInput,
+            emitToRenderer(event)
+        )
     );
 };

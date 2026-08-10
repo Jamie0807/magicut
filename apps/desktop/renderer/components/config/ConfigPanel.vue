@@ -13,12 +13,23 @@ import VoiceConfigPanel from './voice/VoiceConfigPanel.vue';
 const props = withDefaults(
     defineProps<{
         conversation?: ConfigPanelContext['conversation'];
+        isRegeneratingScene?: boolean;
         mode?: ConfigMode;
+        selectedScene?: ConfigPanelContext['selectedScene'];
     }>(),
     {
         mode: editorConfigMode
     }
 );
+const emit = defineEmits<{
+    clearSelectedScene: [];
+    regenerateScene: [
+        input: {
+            prompt: string;
+            sceneId: string;
+        }
+    ];
+}>();
 
 const panelStrategies = {
     visual: VisualConfigPanel,
@@ -33,7 +44,11 @@ const activePanelProps = computed(() =>
     props.mode === 'visual'
         ? {
               context: {
-                  conversation: props.conversation
+                  conversation: props.conversation,
+                  isRegeneratingScene: props.isRegeneratingScene,
+                  onClearSelectedScene: () => emit('clearSelectedScene'),
+                  onRegenerateScene: (input) => emit('regenerateScene', input),
+                  selectedScene: props.selectedScene
               } satisfies ConfigPanelContext
           }
         : {}
