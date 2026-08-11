@@ -7,6 +7,7 @@ import { previewPanel } from '../../constants/editor-screen';
 import type {
     EditorIconName,
     PreviewData,
+    PreviewMusicCue,
     PreviewSegment,
     PreviewSubtitleCue,
     PreviewVoiceCue
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 }>();
 
 const audioRef = useTemplateRef<HTMLAudioElement>('audioRef');
+const musicAudioRef = useTemplateRef<HTMLAudioElement>('musicAudioRef');
 const videoRef = useTemplateRef<HTMLVideoElement>('videoRef');
 
 const formatTwoDigits = (value: number) => String(value).padStart(2, '0');
@@ -104,6 +106,18 @@ const findActiveVoiceCue = ({
         (cue) => currentTimeMs >= cue.startMs && currentTimeMs < cue.endMs
     );
 
+const getPreviewMusicLocalTimeMs = ({
+    currentTimeMs,
+    music
+}: {
+    currentTimeMs: number;
+    music?: PreviewMusicCue;
+}) => {
+    if (!music || music.durationMs <= 0) return currentTimeMs;
+
+    return currentTimeMs % music.durationMs;
+};
+
 const syncMediaCurrentTime = ({
     element,
     force = false,
@@ -149,6 +163,7 @@ const activeSegment = computed(() =>
           })
         : undefined
 );
+const music = computed(() => props.data.music);
 const activeSubtitle = computed(() =>
     findActiveSubtitleCue({
         currentTimeMs: props.currentTimeMs,
@@ -207,6 +222,12 @@ const voiceLocalTimeMs = computed(() =>
         ? Math.max(0, props.currentTimeMs - activeVoiceCue.value.startMs)
         : localTimeMs.value
 );
+const musicLocalTimeMs = computed(() =>
+    getPreviewMusicLocalTimeMs({
+        currentTimeMs: props.currentTimeMs,
+        music: music.value
+    })
+);
 const isVideoSourceExhausted = computed(() =>
     isPreviewSegmentSourceExhausted({
         currentTimeMs: props.currentTimeMs,
@@ -241,6 +262,16 @@ const handleAudioLoadedMetadata = (event: Event) => {
     });
 };
 
+const handleMusicLoadedMetadata = (event: Event) => {
+    const element = event.currentTarget as HTMLMediaElement;
+
+    element.volume = music.value?.volume ?? 0.6;
+    syncMediaCurrentTime({
+        element,
+        timeMs: musicLocalTimeMs.value
+    });
+};
+
 watch(
     [
         activeVideoPlaybackRate,
@@ -248,6 +279,8 @@ watch(
         activeVoiceVolume,
         localTimeMs,
         mediaSource,
+        music,
+        musicLocalTimeMs,
         voiceLocalTimeMs,
         voiceSource
     ],
@@ -261,6 +294,10 @@ watch(
             audioRef.value.volume = activeVoiceVolume.value;
         }
 
+        if (musicAudioRef.value) {
+            musicAudioRef.value.volume = music.value?.volume ?? 0.6;
+        }
+
         syncMediaCurrentTime({
             element: videoRef.value,
             timeMs: localTimeMs.value
@@ -268,6 +305,10 @@ watch(
         syncMediaCurrentTime({
             element: audioRef.value,
             timeMs: voiceLocalTimeMs.value
+        });
+        syncMediaCurrentTime({
+            element: musicAudioRef.value,
+            timeMs: musicLocalTimeMs.value
         });
     },
     { flush: 'post' }
@@ -280,19 +321,23 @@ watch(
             isVideoSourceExhausted.value,
             localTimeMs.value,
             mediaSource.value,
+            music.value?.source,
             voiceSource.value
         ] as const,
     () => {
         const video = videoRef.value;
         const audio = audioRef.value;
+        const musicAudio = musicAudioRef.value;
 
         if (props.isPlaying && !isVideoSourceExhausted.value) {
             void video?.play().catch((): void => undefined);
             void audio?.play().catch((): void => undefined);
+            void musicAudio?.play().catch((): void => undefined);
             return;
         }
 
         video?.pause();
+        musicAudio?.pause();
 
         syncMediaCurrentTime({
             element: video,
@@ -302,10 +347,12 @@ watch(
 
         if (props.isPlaying) {
             void audio?.play().catch((): void => undefined);
+            void musicAudio?.play().catch((): void => undefined);
             return;
         }
 
         audio?.pause();
+        musicAudio?.pause();
     },
     { flush: 'post' }
 );
@@ -366,6 +413,17 @@ watch(
                 :src="mediaSource"
                 :alt="data.alt"
                 class="absolute inset-0 h-full w-full object-cover"
+            />
+            <audio
+                v-if="music"
+                ref="musicAudioRef"
+                :key="music.source"
+                data-preview-music="true"
+                :data-preview-music-title="music.title"
+                :data-preview-music-volume="music.volume"
+                :src="music.source"
+                preload="metadata"
+                @loadedmetadata="handleMusicLoadedMetadata"
             />
         </div>
 

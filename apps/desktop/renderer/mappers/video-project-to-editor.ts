@@ -10,7 +10,11 @@ import type {
 } from '@magicut/video-project';
 
 import { createMediaAssetUrl } from '../../shared/media-protocol';
-import { defaultSubtitleSettings } from '../constants/config';
+import {
+    defaultMusicSettings,
+    defaultSubtitleSettings,
+    musicLibraryTracks
+} from '../constants/config';
 import {
     storyboardItems,
     storyboardSummary,
@@ -20,10 +24,15 @@ import {
     timelineTicks,
     timelineTracks
 } from '../constants/editor-screen';
-import type { SubtitleSettings } from '../types/config';
+import type {
+    MusicSettings,
+    MusicTrack,
+    SubtitleSettings
+} from '../types/config';
 import type {
     EditorScreenData,
     PreviewData,
+    PreviewMusicCue,
     StoryboardData,
     StoryboardItem,
     TimelineClip,
@@ -58,6 +67,20 @@ const defaultTimelineData: TimelineData = {
     tracks: timelineTracks
 };
 
+const musicConfigFallbackTrack: MusicTrack = {
+    active: true,
+    coverImageUrl: '',
+    durationLabel: '00:00',
+    durationMs: 1,
+    id: 'song_01',
+    meta: '背景音乐',
+    mood: '平静',
+    scenes: [],
+    sourceUrl: '',
+    tempo: '适中',
+    title: '背景音乐'
+};
+
 const defaultPreviewData: PreviewData = {
     alt: '当前口播短片的视频预览画面',
     durationMs: 90_000,
@@ -66,6 +89,7 @@ const defaultPreviewData: PreviewData = {
 };
 
 type EditorScreenDataOptions = {
+    musicSettings?: MusicSettings;
     subtitleSettings?: SubtitleSettings;
 };
 
@@ -100,6 +124,84 @@ const toTimelineWidth = (durationMs: number) =>
             formatDurationSeconds(durationMs) * TIMELINE_PIXELS_PER_SECOND
         )
     );
+
+const resolveMusicTrack = (settings?: MusicSettings) => {
+    const musicSettings = settings ?? defaultMusicSettings;
+
+    return (
+        musicLibraryTracks.find(
+            (track) => track.id === musicSettings.selectedTrackId
+        ) ??
+        musicLibraryTracks[0] ??
+        musicConfigFallbackTrack
+    );
+};
+
+const applyTimelineSettings = ({
+    durationMs,
+    musicSettings,
+    subtitleSettings,
+    timeline
+}: {
+    durationMs: number;
+    musicSettings?: MusicSettings;
+    subtitleSettings?: SubtitleSettings;
+    timeline: TimelineData;
+}): TimelineData => {
+    const music = musicSettings ?? defaultMusicSettings;
+    const subtitles = subtitleSettings ?? defaultSubtitleSettings;
+    const selectedTrack = resolveMusicTrack(music);
+    const musicMeta = `${selectedTrack.title} · ${formatTimelineTime(durationMs)}`;
+    const musicClip: TimelineClip = {
+        bars: 32,
+        colorClassName: clipColorClassNames.music,
+        durationSeconds: formatDurationSeconds(durationMs),
+        kind: 'music',
+        label: `${selectedTrack.title} · 全片背景音乐`,
+        widthPx: toTimelineWidth(durationMs)
+    };
+
+    return {
+        ...timeline,
+        clipsByTrack: {
+            ...timeline.clipsByTrack,
+            music: music.enabled ? [musicClip] : [],
+            subtitle: subtitles.isVisible ? timeline.clipsByTrack.subtitle : []
+        },
+        tracks: timeline.tracks.flatMap((track) => {
+            if (track.id === 'subtitle' && !subtitles.isVisible) return [];
+            if (track.id === 'music' && !music.enabled) return [];
+
+            if (track.id !== 'music') return [track];
+
+            return [
+                {
+                    ...track,
+                    meta: musicMeta
+                }
+            ];
+        })
+    };
+};
+
+const createPreviewMusic = (
+    musicSettings?: MusicSettings
+): PreviewMusicCue | undefined => {
+    const settings = musicSettings ?? defaultMusicSettings;
+
+    if (!settings.enabled) return undefined;
+
+    const selectedTrack = resolveMusicTrack(settings);
+
+    if (!selectedTrack.sourceUrl) return undefined;
+
+    return {
+        durationMs: selectedTrack.durationMs,
+        source: selectedTrack.sourceUrl,
+        title: selectedTrack.title,
+        volume: settings.volume
+    };
+};
 
 export const createTimelinePlayhead = ({
     currentTimeMs,
@@ -433,35 +535,46 @@ const createStoryboard = (project: VideoProject): StoryboardData => {
     };
 };
 
-const createTimeline = (project: VideoProject): TimelineData => {
+const createTimeline = (
+    project: VideoProject,
+    options: EditorScreenDataOptions = {}
+): TimelineData => {
     const contentWidthPx = toTimelineWidth(project.canvas.durationMs);
 
-    return {
-        clipsByTrack: createClipsByTrack(project),
-        layout: {
-            ...timelineLayout,
-            contentMinWidthClassName: `min-w-[max(100%,${contentWidthPx}px)] w-[${contentWidthPx}px]`,
-            contentWidthPx,
-            tickWidthPx: toTimelineWidth(TICK_INTERVAL_MS)
-        },
-        panel: {
-            ...timelinePanel,
-            timecode: `00:00:00 / ${formatTimelineTimeWithHours(
-                project.canvas.durationMs
-            )}`
-        },
-        playhead: createTimelinePlayhead({
-            currentTimeMs: 0,
-            durationMs: project.canvas.durationMs
-        }),
-        ticks: createTicks(project.canvas.durationMs),
-        tracks: createTracks(project)
-    };
+    return applyTimelineSettings({
+        durationMs: project.canvas.durationMs,
+        musicSettings: options.musicSettings,
+        subtitleSettings: options.subtitleSettings,
+        timeline: {
+            clipsByTrack: createClipsByTrack(project),
+            layout: {
+                ...timelineLayout,
+                contentMinWidthClassName: `min-w-[max(100%,${contentWidthPx}px)] w-[${contentWidthPx}px]`,
+                contentWidthPx,
+                tickWidthPx: toTimelineWidth(TICK_INTERVAL_MS)
+            },
+            panel: {
+                ...timelinePanel,
+                timecode: `00:00:00 / ${formatTimelineTimeWithHours(
+                    project.canvas.durationMs
+                )}`
+            },
+            playhead: createTimelinePlayhead({
+                currentTimeMs: 0,
+                durationMs: project.canvas.durationMs
+            }),
+            ticks: createTicks(project.canvas.durationMs),
+            tracks: createTracks(project)
+        }
+    });
 };
 
 const createPreview = (
     project: VideoProject,
-    { subtitleSettings = defaultSubtitleSettings }: EditorScreenDataOptions = {}
+    {
+        musicSettings,
+        subtitleSettings = defaultSubtitleSettings
+    }: EditorScreenDataOptions = {}
 ): PreviewData => {
     const videoTrack = getTrack(project.tracks, 'video');
     const voiceTrack = getTrack(project.tracks, 'voice');
@@ -578,6 +691,7 @@ const createPreview = (
     return {
         alt: firstSegment.alt,
         durationMs: project.canvas.durationMs,
+        music: createPreviewMusic(musicSettings),
         posterSource: firstSegment.posterSource,
         segments,
         source: firstSegment.source,
@@ -591,7 +705,7 @@ export const videoProjectToEditor = (
 ): EditorScreenData => ({
     preview: createPreview(project, options),
     storyboard: createStoryboard(project),
-    timeline: createTimeline(project)
+    timeline: createTimeline(project, options)
 });
 
 export const createEditorScreenData = (
@@ -602,7 +716,12 @@ export const createEditorScreenData = (
         return {
             preview: defaultPreviewData,
             storyboard: defaultStoryboardData,
-            timeline: defaultTimelineData
+            timeline: applyTimelineSettings({
+                durationMs: defaultPreviewData.durationMs,
+                musicSettings: options?.musicSettings,
+                subtitleSettings: options?.subtitleSettings,
+                timeline: defaultTimelineData
+            })
         };
     }
 

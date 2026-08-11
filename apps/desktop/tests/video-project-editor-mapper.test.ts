@@ -335,6 +335,39 @@ describe('videoProjectToEditor', () => {
         expect(data.preview.segments[0]?.subtitleCues).toEqual([]);
     });
 
+    it('hides subtitle and music timeline tracks when those settings are disabled', async () => {
+        const data = createEditorScreenData(createNineSceneProject(), {
+            musicSettings: {
+                enabled: false,
+                selectedTrackId: 'song_01',
+                volume: 0.6
+            },
+            subtitleSettings: {
+                fontSizePx: 24,
+                isVisible: false,
+                outlineColor: '#000000',
+                presetLabel: '白字黑边',
+                textColor: '#F5F7FA'
+            }
+        });
+        const html = await renderToString(
+            createSSRApp({
+                render: () => h(TimelinePanel, { data: data.timeline })
+            })
+        );
+
+        expect(data.timeline.tracks.map((track) => track.id)).toEqual([
+            'video',
+            'voice'
+        ]);
+        expect(data.timeline.clipsByTrack.subtitle).toEqual([]);
+        expect(data.timeline.clipsByTrack.music).toEqual([]);
+        expect(html).toContain('data-timeline-track="video"');
+        expect(html).toContain('data-timeline-track="voice"');
+        expect(html).not.toContain('data-timeline-track="subtitle"');
+        expect(html).not.toContain('data-timeline-track="music"');
+    });
+
     it('renders mapped timeline clips through the existing timeline component', async () => {
         const data = videoProjectToEditor(createNineSceneProject());
         const html = await renderToString(
@@ -477,5 +510,42 @@ describe('videoProjectToEditor', () => {
             'Eutopia · 全片背景音乐'
         );
         expect(data.preview.type).toBe('image');
+    });
+
+    it('syncs the selected bundled song into the static editor timeline', () => {
+        const data = createEditorScreenData(undefined, {
+            musicSettings: {
+                enabled: true,
+                selectedTrackId: 'song_08',
+                volume: 0.6
+            }
+        });
+
+        expect(
+            data.timeline.tracks.find((track) => track.id === 'music')
+        ).toMatchObject({
+            meta: 'Paris 悬疑电影解说 · 01:30'
+        });
+        expect(data.timeline.clipsByTrack.music[0]).toMatchObject({
+            durationSeconds: 90,
+            label: 'Paris 悬疑电影解说 · 全片背景音乐',
+            widthPx: 1728
+        });
+    });
+
+    it('passes the selected bundled song and volume into preview data', () => {
+        const data = createEditorScreenData(createNineSceneProject(), {
+            musicSettings: {
+                enabled: true,
+                selectedTrackId: 'song_08',
+                volume: 0.35
+            }
+        });
+
+        expect(data.preview.music).toMatchObject({
+            source: expect.stringContaining('Paris'),
+            title: 'Paris 悬疑电影解说',
+            volume: 0.35
+        });
     });
 });

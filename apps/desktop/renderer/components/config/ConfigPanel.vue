@@ -16,6 +16,7 @@ const props = withDefaults(
         isRegeneratingScene?: boolean;
         isRegeneratingVoices?: boolean;
         mode?: ConfigMode;
+        musicSettings?: ConfigPanelContext['musicSettings'];
         selectedScene?: ConfigPanelContext['selectedScene'];
         subtitleSettings?: ConfigPanelContext['subtitleSettings'];
         voicePreviewStopSignal?: number;
@@ -39,6 +40,9 @@ const emit = defineEmits<{
             selectedVoiceType?: string;
         }
     ];
+    musicSettingsChange: [
+        settings: NonNullable<ConfigPanelContext['musicSettings']>
+    ];
     subtitleSettingsChange: [
         settings: NonNullable<ConfigPanelContext['subtitleSettings']>
     ];
@@ -56,31 +60,27 @@ const panelStrategies = {
 
 const activePanel = computed(() => panelStrategies[props.mode]);
 
-const activePanelProps = computed(() =>
-    props.mode === 'visual' ||
-    props.mode === 'voice' ||
-    props.mode === 'subtitle'
-        ? {
-              context: {
-                  conversation: props.conversation,
-                  isRegeneratingScene: props.isRegeneratingScene,
-                  isRegeneratingVoices: props.isRegeneratingVoices,
-                  onClearSelectedScene: () => emit('clearSelectedScene'),
-                  onRegenerateScene: (input) => emit('regenerateScene', input),
-                  onRegenerateVoices: (input) =>
-                      emit('regenerateVoices', input),
-                  onSubtitleSettingsChange: (settings) =>
-                      emit('subtitleSettingsChange', settings),
-                  onVoiceSettingsChange: (settings) =>
-                      emit('voiceSettingsChange', settings),
-                  selectedScene: props.selectedScene,
-                  subtitleSettings: props.subtitleSettings,
-                  voicePreviewStopSignal: props.voicePreviewStopSignal,
-                  voiceSettings: props.voiceSettings
-              } satisfies ConfigPanelContext
-          }
-        : {}
-);
+const activePanelProps = computed(() => ({
+    context: {
+        conversation: props.conversation,
+        isRegeneratingScene: props.isRegeneratingScene,
+        isRegeneratingVoices: props.isRegeneratingVoices,
+        musicSettings: props.musicSettings,
+        onClearSelectedScene: () => emit('clearSelectedScene'),
+        onMusicSettingsChange: (settings) =>
+            emit('musicSettingsChange', settings),
+        onRegenerateScene: (input) => emit('regenerateScene', input),
+        onRegenerateVoices: (input) => emit('regenerateVoices', input),
+        onSubtitleSettingsChange: (settings) =>
+            emit('subtitleSettingsChange', settings),
+        onVoiceSettingsChange: (settings) =>
+            emit('voiceSettingsChange', settings),
+        selectedScene: props.selectedScene,
+        subtitleSettings: props.subtitleSettings,
+        voicePreviewStopSignal: props.voicePreviewStopSignal,
+        voiceSettings: props.voiceSettings
+    } satisfies ConfigPanelContext
+}));
 </script>
 
 <template>

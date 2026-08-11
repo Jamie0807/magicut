@@ -2,9 +2,12 @@ import {
     defaultVideoAgentVoiceSettings,
     videoAgentVoiceOptions
 } from '../../shared/video-agent-voices';
+import songCatalog from '../assets/song/song.json';
 import type {
     ConfigMode,
     MusicConfigData,
+    MusicSettings,
+    MusicTrack,
     SubtitleConfigData,
     SubtitleSettings,
     VisualConfigData,
@@ -38,6 +41,94 @@ const voicePreviewAudioUrls = Object.fromEntries(
         ).href
     ])
 ) as Record<(typeof videoAgentVoiceOptions)[number]['label'], string>;
+
+const songAudioUrlsByFileName = new Map([
+    [
+        'Dance for Me Wallis.m4a',
+        new URL('../assets/song/Dance for Me Wallis.m4a', import.meta.url).href
+    ],
+    [
+        'Eutopia.m4a',
+        new URL('../assets/song/Eutopia.m4a', import.meta.url).href
+    ],
+    [
+        'Paris 悬疑电影解说.m4a',
+        new URL('../assets/song/Paris 悬疑电影解说.m4a', import.meta.url).href
+    ],
+    [
+        'Send My Love.m4a',
+        new URL('../assets/song/Send My Love.m4a', import.meta.url).href
+    ],
+    [
+        'eternity.m4a',
+        new URL('../assets/song/eternity.m4a', import.meta.url).href
+    ],
+    [
+        'みかん箱-ひやむぎ、そーめ....m4a',
+        new URL(
+            '../assets/song/みかん箱-ひやむぎ、そーめ....m4a',
+            import.meta.url
+        ).href
+    ],
+    [
+        '久石让 - 太阳照常升起(the s....m4a',
+        new URL(
+            '../assets/song/久石让 - 太阳照常升起(the s....m4a',
+            import.meta.url
+        ).href
+    ],
+    [
+        '月亮之上(交响乐版).m4a',
+        new URL('../assets/song/月亮之上(交响乐版).m4a', import.meta.url).href
+    ],
+    ['青空.m4a', new URL('../assets/song/青空.m4a', import.meta.url).href],
+    ['面会菜.m4a', new URL('../assets/song/面会菜.m4a', import.meta.url).href]
+]);
+
+const musicCoverImageUrls = [
+    new URL('../assets/music/eutopia.png', import.meta.url).href,
+    new URL('../assets/music/canon.png', import.meta.url).href,
+    new URL('../assets/music/plain-day.png', import.meta.url).href,
+    new URL('../assets/music/ylang-ylang.png', import.meta.url).href,
+    new URL('../assets/music/warm-healing.png', import.meta.url).href,
+    new URL('../assets/music/my-treasure.png', import.meta.url).href
+] as const;
+
+const parseDurationMs = (duration: string) => {
+    const [minutes = '0', seconds = '0'] = duration.split(':');
+
+    return (Number(minutes) * 60 + Number(seconds)) * 1000;
+};
+
+const formatSongId = (order: number) =>
+    `song_${String(order).padStart(2, '0')}`;
+
+const createMusicTrack = (
+    item: (typeof songCatalog.items)[number],
+    index: number
+): MusicTrack => ({
+    active: index === 0,
+    coverImageUrl:
+        musicCoverImageUrls[index % musicCoverImageUrls.length] ??
+        musicCoverImageUrls[0],
+    durationLabel: item.duration,
+    durationMs: parseDurationMs(item.duration),
+    id: formatSongId(item.order),
+    meta: item.description.replaceAll('｜', ' | '),
+    mood: item.mood,
+    scenes: item.scenes,
+    sourceUrl: songAudioUrlsByFileName.get(item.fileName) ?? '',
+    tempo: item.tempo,
+    title: item.title
+});
+
+export const musicLibraryTracks = songCatalog.items.map(createMusicTrack);
+
+export const defaultMusicSettings = {
+    enabled: true,
+    selectedTrackId: musicLibraryTracks[0]?.id ?? 'song_01',
+    volume: 0.6
+} satisfies MusicSettings;
 
 const createVoicePreset = ({
     description,
@@ -234,13 +325,16 @@ export const musicConfigPanel = {
         trackTitle: 'Eutopia',
         artistLine: 'Mika Chen · 平静 / 社会题材',
         metaLine: '偏慢 · 02:01 · 已对齐时间线',
-        coverImageUrl: new URL('../assets/music/eutopia.png', import.meta.url)
-            .href
+        coverImageUrl: musicLibraryTracks[0]?.coverImageUrl ?? ''
     },
     volume: {
         label: '音量',
         value: '60%',
         icon: 'volume-2',
+        max: 100,
+        min: 0,
+        numericValue: 60,
+        step: 1,
         trackWidthClassName: 'w-[260px]',
         progressWidthClassName: 'w-[156px]',
         thumbLeftClassName: 'left-[148px]'
@@ -248,69 +342,12 @@ export const musicConfigPanel = {
     recommendations: {
         title: '推荐音乐',
         categories: [
-            { label: '全部', active: false },
-            { label: '平静', active: true },
-            { label: '欢快', active: false },
-            { label: '励志', active: false },
-            { label: '抒情', active: false },
+            { label: '全部', active: true },
+            ...Array.from(
+                new Set(musicLibraryTracks.map((track) => track.mood))
+            ).map((label) => ({ label, active: false })),
             { label: '更多', active: false }
         ],
-        tracks: [
-            {
-                title: 'Eutopia',
-                meta: '平静 | 适合社会题材 | 偏慢 | 02:01',
-                active: true,
-                statusLabel: '使用中',
-                coverImageUrl: new URL(
-                    '../assets/music/eutopia.png',
-                    import.meta.url
-                ).href
-            },
-            {
-                title: '卡农（经典钢琴版）',
-                meta: '平静 | 适合通用题材 | 偏快 | 01:43',
-                active: false,
-                coverImageUrl: new URL(
-                    '../assets/music/canon.png',
-                    import.meta.url
-                ).href
-            },
-            {
-                title: '通用 日常 平和',
-                meta: '平静 | 适合通用题材 | 适中 | 00:20',
-                active: false,
-                coverImageUrl: new URL(
-                    '../assets/music/plain-day.png',
-                    import.meta.url
-                ).href
-            },
-            {
-                title: 'Ylang Ylang',
-                meta: '平静 | 适合财经题材 | 偏慢 | 03:33',
-                active: false,
-                coverImageUrl: new URL(
-                    '../assets/music/ylang-ylang.png',
-                    import.meta.url
-                ).href
-            },
-            {
-                title: '温馨治愈音乐之一',
-                meta: '平静 | 适合社会题材 | 偏快 | 00:57',
-                active: false,
-                coverImageUrl: new URL(
-                    '../assets/music/warm-healing.png',
-                    import.meta.url
-                ).href
-            },
-            {
-                title: 'My Treasure',
-                meta: '平静 | 适合通用题材 | 偏快 | 01:25',
-                active: false,
-                coverImageUrl: new URL(
-                    '../assets/music/my-treasure.png',
-                    import.meta.url
-                ).href
-            }
-        ]
+        tracks: musicLibraryTracks
     }
 } satisfies MusicConfigData;

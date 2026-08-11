@@ -125,6 +125,12 @@ describe('EditorScreen', () => {
                             'magicut-media://project/project_real/voice/voice_asset_001'
                     }
                 ],
+                music: {
+                    durationMs: 121_000,
+                    source: '/song/Eutopia.m4a',
+                    title: 'Eutopia',
+                    volume: 0.6
+                },
                 source: 'magicut-media://project/project_real/video/video_asset_001',
                 type: 'video'
             },
@@ -141,6 +147,10 @@ describe('EditorScreen', () => {
         expect(html).toContain(
             'src="magicut-media://project/project_real/voice/voice_asset_001"'
         );
+        expect(html).toContain('data-preview-music="true"');
+        expect(html).toContain('data-preview-music-title="Eutopia"');
+        expect(html).toContain('data-preview-music-volume="0.6"');
+        expect(html).toContain('src="/song/Eutopia.m4a"');
         expect(html).toContain('data-preview-subtitle-layer="true"');
         expect(html).toContain(
             'absolute inset-x-0 bottom-[50px] flex justify-center'
@@ -614,11 +624,11 @@ describe('EditorScreen', () => {
         expect(html).toContain('更多');
         expect(html).toContain('使用中');
         expect(html).toContain('eutopia.png');
-        expect(html).toContain('卡农（经典钢琴版）');
-        expect(html).toContain('通用 日常 平和');
-        expect(html).toContain('Ylang Ylang');
-        expect(html).toContain('温馨治愈音乐之一');
-        expect(html).toContain('My Treasure');
+        expect(html).toContain('data-music-track-id="song_01"');
+        expect(html).toContain('data-music-track-id="song_08"');
+        expect(html).toContain('Paris 悬疑电影解说');
+        expect(html).toContain('青空');
+        expect(html).toContain('Dance for Me Wallis');
         expect(html).not.toContain('移除');
         expect(html).not.toContain('应用音乐');
         expect(html).not.toMatch(forbiddenBrandPattern);
@@ -688,6 +698,34 @@ describe('EditorScreen', () => {
         expect(subtitlePanelSource).toContain('@value-change');
         expect(subtitlePanelSource).toContain('@toggle');
         expect(subtitlePanelSource).toContain('@click');
+    });
+
+    it('wires music settings to the editor preview and timeline state', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const configPanelSource = readFileSync(
+            resolve(__dirname, '../renderer/components/config/ConfigPanel.vue'),
+            'utf8'
+        );
+        const musicPanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/music/MusicConfigPanel.vue'
+            ),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('musicSettings');
+        expect(editorSource).toContain(
+            '@music-settings-change="handleMusicSettingsChange"'
+        );
+        expect(configPanelSource).toContain('onMusicSettingsChange');
+        expect(configPanelSource).toContain('musicSettings');
+        expect(musicPanelSource).toContain('@toggle');
+        expect(musicPanelSource).toContain('@value-change');
+        expect(musicPanelSource).toContain('@select');
     });
 
     it('moves the subtitle preset highlight with the selected style', async () => {

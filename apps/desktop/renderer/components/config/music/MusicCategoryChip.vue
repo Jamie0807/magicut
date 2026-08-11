@@ -4,6 +4,9 @@ import type { MusicCategoryChip as MusicCategoryChipData } from '../../../types/
 defineProps<{
     category: MusicCategoryChipData;
 }>();
+const emit = defineEmits<{
+    select: [label: string];
+}>();
 </script>
 
 <template>
@@ -16,6 +19,7 @@ defineProps<{
                 ? 'border-[#F05F73] bg-[#F05F7326] text-[#F05F73] hover:bg-[#F05F7333]'
                 : 'border-[#242529] bg-[#242529] text-[#D5D8DE] hover:bg-[#30343A]'
         ]"
+        @click="emit('select', category.label)"
     >
         {{ category.label }}
     </button>

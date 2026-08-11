@@ -145,6 +145,13 @@ export type PreviewVoiceCue = {
     volume?: number;
 };
 
+export type PreviewMusicCue = {
+    durationMs: number;
+    source: string;
+    title: string;
+    volume: number;
+};
+
 export type PreviewSegment = {
     alt: string;
     endMs: number;
@@ -164,12 +171,14 @@ export type PreviewData =
     | {
           alt: string;
           durationMs: number;
+          music?: PreviewMusicCue;
           source: string;
           type: 'image';
       }
     | {
           alt: string;
           durationMs: number;
+          music?: PreviewMusicCue;
           posterSource?: string;
           segments: PreviewSegment[];
           source: string;

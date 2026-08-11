@@ -64,6 +64,9 @@ const PLAYHEAD_CONTENT_START_PX = 200;
 const PLAYHEAD_LINE_OFFSET_PX = 9;
 const PLAYHEAD_SCROLL_LEADING_PADDING_PX = 24;
 const PLAYHEAD_SCROLL_TRAILING_PADDING_PX = 96;
+const TIMELINE_TITLE_BAR_HEIGHT_PX = 42;
+const TIMELINE_RULER_HEIGHT_PX = 30;
+const TIMELINE_TRACK_HEIGHT_PX = 50;
 const FALLBACK_TIMELINE_DURATION_MS = 90_000;
 
 const fallbackTimelineData: TimelineData = {
@@ -108,6 +111,20 @@ const trackRows = computed(() =>
         rowClassName: timelineTrackRowStartClassNames[index] ?? 'row-start-2'
     }))
 );
+const timelineMetrics = computed(() => {
+    const visibleTrackCount = Math.max(timelineData.value.tracks.length, 0);
+    const contentRowCount = visibleTrackCount + 1;
+    const contentHeightPx =
+        TIMELINE_RULER_HEIGHT_PX + visibleTrackCount * TIMELINE_TRACK_HEIGHT_PX;
+
+    return {
+        contentGridTemplateRows: `${TIMELINE_RULER_HEIGHT_PX}px repeat(${visibleTrackCount}, ${TIMELINE_TRACK_HEIGHT_PX}px)`,
+        contentRowCount,
+        playheadHeightPx: contentHeightPx - 3,
+        playheadLineHeightPx: Math.max(0, contentHeightPx - 10),
+        sectionHeightPx: TIMELINE_TITLE_BAR_HEIGHT_PX + contentHeightPx
+    };
+});
 
 const clipStyle = (clip: TimelineClip): CSSProperties => ({
     width: `${clip.widthPx}px`
@@ -156,15 +173,32 @@ const handleTimelinePointerLeave = () => {
 };
 
 const timelineContentStyle = computed<CSSProperties | undefined>(() => {
+    const style: CSSProperties = {
+        gridTemplateRows: timelineMetrics.value.contentGridTemplateRows
+    };
+
     if (!timelineData.value.layout.contentWidthPx) {
-        return undefined;
+        return style;
     }
 
     return {
+        ...style,
         minWidth: `${timelineData.value.layout.contentWidthPx}px`,
         width: `${timelineData.value.layout.contentWidthPx}px`
     };
 });
+
+const timelineSectionStyle = computed<CSSProperties>(() => ({
+    height: `${timelineMetrics.value.sectionHeightPx}px`
+}));
+
+const timelineGridStyle = computed<CSSProperties>(() => ({
+    gridTemplateRows: timelineMetrics.value.contentGridTemplateRows
+}));
+
+const scrollContainerStyle = computed<CSSProperties>(() => ({
+    gridRow: `1 / span ${timelineMetrics.value.contentRowCount}`
+}));
 
 const tickStyle = computed<CSSProperties | undefined>(() => {
     if (!timelineData.value.layout.tickWidthPx) {
@@ -242,6 +276,20 @@ const hoverPlayheadLabel = computed(() =>
         : formatTimelinePointerTime(hoverPlayheadTimeMs.value)
 );
 
+const playheadContainerStyle = computed<CSSProperties>(() => ({
+    ...playheadStyle.value,
+    height: `${timelineMetrics.value.playheadHeightPx}px`
+}));
+
+const playheadLineStyle = computed<CSSProperties>(() => ({
+    height: `${timelineMetrics.value.playheadLineHeightPx}px`
+}));
+
+const hoverPlayheadContainerStyle = computed<CSSProperties>(() => ({
+    ...hoverPlayheadStyle.value,
+    height: `${timelineMetrics.value.playheadHeightPx}px`
+}));
+
 watch([contentWidthPx, playheadX], () => {
     const scrollContainer = scrollContainerRef.value;
 
@@ -272,6 +320,7 @@ watch([contentWidthPx, playheadX], () => {
             'relative flex min-h-0 flex-col overflow-hidden border-t border-[#2A2F38] bg-[#121418]',
             timelineData.layout.sectionHeightClassName
         ]"
+        :style="timelineSectionStyle"
         aria-label="时间线"
     >
         <div
@@ -327,6 +376,7 @@ watch([contentWidthPx, playheadX], () => {
                 timelineData.layout.contentGridClassName,
                 timelineData.layout.contentRowsClassName
             ]"
+            :style="timelineGridStyle"
         >
             <div
                 class="col-start-1 row-start-1 border-r border-b border-[#2A2F38] bg-[#111318]"
@@ -359,6 +409,7 @@ watch([contentWidthPx, playheadX], () => {
                 ref="scrollContainerRef"
                 data-timeline-scroll-container="true"
                 class="col-start-2 row-start-1 row-span-5 min-w-0 cursor-crosshair overflow-x-auto overflow-y-hidden"
+                :style="scrollContainerStyle"
                 @click="handleTimelineClick"
                 @pointerleave="handleTimelinePointerLeave"
                 @pointermove="handleTimelinePointerMove"
@@ -472,7 +523,7 @@ watch([contentWidthPx, playheadX], () => {
         </div>
 
         <div
-            :style="playheadStyle"
+            :style="playheadContainerStyle"
             :data-playhead-progress="timelineData.playhead.progress"
             :data-playhead-scroll-left="scrollLeftPx"
             class="absolute top-[35px] h-[237px] w-5 will-change-transform"
@@ -482,11 +533,12 @@ watch([contentWidthPx, playheadX], () => {
             />
             <span
                 class="absolute top-[7px] left-[9px] h-[230px] w-0.5 bg-[#F05F73]"
+                :style="playheadLineStyle"
             />
         </div>
         <div
             v-if="hoverPlayheadTimeMs !== undefined"
-            :style="hoverPlayheadStyle"
+            :style="hoverPlayheadContainerStyle"
             :data-hover-time-ms="hoverPlayheadTimeMs"
             data-timeline-hover-playhead="true"
             class="pointer-events-none absolute top-[35px] h-[237px] w-5 will-change-transform"
@@ -501,6 +553,7 @@ watch([contentWidthPx, playheadX], () => {
             />
             <span
                 class="absolute top-[7px] left-[9px] h-[230px] w-0.5 bg-[#F6B84B]/80"
+                :style="playheadLineStyle"
             />
         </div>
     </section>

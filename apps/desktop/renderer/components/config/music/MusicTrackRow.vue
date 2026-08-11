@@ -6,18 +6,24 @@ import MusicCover from './MusicCover.vue';
 defineProps<{
     track: MusicTrack;
 }>();
+const emit = defineEmits<{
+    select: [track: MusicTrack];
+}>();
 </script>
 
 <template>
     <button
         type="button"
         :aria-pressed="track.active"
+        :data-music-source-url="track.sourceUrl"
+        :data-music-track-id="track.id"
         :class="[
             'flex h-[40px] w-full items-center gap-2.5 rounded-[10px] px-0 text-left transition-all duration-200 hover:-translate-y-[1px] cursor-pointer',
             track.active
                 ? 'bg-[#1E2126] hover:bg-[#24282F]'
                 : 'bg-transparent hover:bg-[#24282F]'
         ]"
+        @click="emit('select', track)"
     >
         <MusicCover
             :src="track.coverImageUrl"

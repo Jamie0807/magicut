@@ -10,7 +10,9 @@ export type ConfigPanelContext = {
     conversation?: AgentConversationMessage[];
     isRegeneratingScene?: boolean;
     isRegeneratingVoices?: boolean;
+    musicSettings?: MusicSettings;
     onClearSelectedScene?: () => void;
+    onMusicSettingsChange?: (settings: MusicSettings) => void;
     onRegenerateScene?: (input: {
         prompt: string;
         sceneId: string;
@@ -143,11 +145,24 @@ export type MusicCategoryChip = {
 };
 
 export type MusicTrack = {
+    active: boolean;
+    coverImageUrl: string;
+    durationLabel: string;
+    durationMs: number;
+    id: string;
+    mood: string;
+    scenes: string[];
+    sourceUrl: string;
+    tempo: string;
     title: string;
     meta: string;
-    active: boolean;
     statusLabel?: string;
-    coverImageUrl: string;
+};
+
+export type MusicSettings = {
+    enabled: boolean;
+    selectedTrackId: string;
+    volume: number;
 };
 
 export type MusicConfigData = {

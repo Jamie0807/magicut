@@ -10,7 +10,11 @@ import PreviewPanel from '../components/editor/PreviewPanel.vue';
 import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { defaultVideoAgentVoiceSettings } from '../../shared/video-agent-voices';
-import { defaultSubtitleSettings, editorConfigMode } from '../constants/config';
+import {
+    defaultMusicSettings,
+    defaultSubtitleSettings,
+    editorConfigMode
+} from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
 import {
     applySceneRegenerationStreamEvent,
@@ -25,6 +29,7 @@ import {
 import type {
     ConfigMode,
     ConfigPanelContext,
+    MusicSettings,
     SubtitleSettings
 } from '../types/config';
 import type { StoryboardItem, TimelineData } from '../types/editor-screen';
@@ -50,6 +55,9 @@ const isRegeneratingScene = shallowRef(false);
 const isRegeneratingVoices = shallowRef(false);
 const selectedSceneId = shallowRef<string | undefined>();
 const titleSaveStatus = shallowRef(editorHeader.status);
+const musicSettings = shallowRef<MusicSettings>({
+    ...defaultMusicSettings
+});
 const subtitleSettings = shallowRef<SubtitleSettings>({
     ...defaultSubtitleSettings
 });
@@ -57,6 +65,7 @@ const voicePreviewStopSignal = shallowRef(0);
 const voiceSettings = shallowRef({ ...defaultVideoAgentVoiceSettings });
 const editorData = computed(() =>
     createEditorScreenData(currentProject.value, {
+        musicSettings: musicSettings.value,
         subtitleSettings: subtitleSettings.value
     })
 );
@@ -276,6 +285,12 @@ const handleSubtitleSettingsChange: NonNullable<
     subtitleSettings.value = settings;
 };
 
+const handleMusicSettingsChange: NonNullable<
+    ConfigPanelContext['onMusicSettingsChange']
+> = (settings) => {
+    musicSettings.value = settings;
+};
+
 const handleRegenerateVoices: NonNullable<
     ConfigPanelContext['onRegenerateVoices']
 > = async ({ selectedVoice, selectedVoiceType }) => {
@@ -364,6 +379,7 @@ watch(
         isRegeneratingScene.value = false;
         isRegeneratingVoices.value = false;
         selectedSceneId.value = undefined;
+        musicSettings.value = { ...defaultMusicSettings };
         subtitleSettings.value = { ...defaultSubtitleSettings };
         titleSaveStatus.value = editorHeader.status;
         voicePreviewStopSignal.value += 1;
@@ -432,6 +448,7 @@ watch(
                     :is-regenerating-scene="isRegeneratingScene"
                     :is-regenerating-voices="isRegeneratingVoices"
                     :mode="activeMode"
+                    :music-settings="musicSettings"
                     :selected-scene="selectedScene"
                     :subtitle-settings="subtitleSettings"
                     :voice-preview-stop-signal="voicePreviewStopSignal"
@@ -439,6 +456,7 @@ watch(
                     @clear-selected-scene="isQuickAdjustmentSceneLinked = false"
                     @regenerate-scene="handleRegenerateScene"
                     @regenerate-voices="handleRegenerateVoices"
+                    @music-settings-change="handleMusicSettingsChange"
                     @subtitle-settings-change="handleSubtitleSettingsChange"
                     @voice-settings-change="handleVoiceSettingsChange"
                 />
