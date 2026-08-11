@@ -37,6 +37,7 @@ const activeView = shallowRef<WorkspaceView>(props.initialView);
 const router = useRouter();
 const agentEvents = shallowRef<DesktopAgentRunEvent[]>([]);
 const activeAgentRunId = shallowRef<string | undefined>();
+const createValidationErrorMessage = shallowRef<string | undefined>();
 const lastAgentSubmitInput = shallowRef<CreateAgentSubmitInput | undefined>();
 const isProjectDeleting = shallowRef(false);
 const projectDeleteErrorMessage = shallowRef<string | undefined>();
@@ -91,6 +92,7 @@ const loadWorkspaceProjects = async () => {
 };
 
 const appendAgentEvent = (event: DesktopAgentRunEvent) => {
+    createValidationErrorMessage.value = undefined;
     agentEvents.value = [...agentEvents.value, event];
 
     if (event.type === 'run.started') {
@@ -118,6 +120,7 @@ const appendLocalAgentFailure = (message: string) => {
 const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
     activeView.value = 'create';
     agentEvents.value = [];
+    createValidationErrorMessage.value = undefined;
     lastAgentSubmitInput.value = input;
 
     const result = await startAgentRun({
@@ -126,6 +129,11 @@ const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
     });
 
     if (result.success === false) {
+        if (result.error.code === 'VALIDATION_FAILED') {
+            createValidationErrorMessage.value = result.error.message;
+            return;
+        }
+
         appendLocalAgentFailure(result.error.message);
         return;
     }
@@ -254,6 +262,7 @@ onUnmounted(() => {
                         :agent-events="agentEvents"
                         :content="createPageContent"
                         :is-agent-busy="isAgentBusy"
+                        :validation-error-message="createValidationErrorMessage"
                         @agent-approve="handleAgentApprove"
                         @agent-cancel="handleAgentCancel"
                         @agent-retry="handleAgentRetry"

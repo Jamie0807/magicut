@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { registerCustomVoiceIpc } from './custom-voice-ipc';
 import { createCustomVoiceLibrary } from './custom-voice-library';
+import { registerFileDialogIpc } from './file-dialog-ipc';
 import {
     registerMediaProtocol,
     registerMediaProtocolSchemePrivileges
@@ -62,6 +63,10 @@ app.whenReady().then(() => {
         dialog,
         ipcMain,
         library: customVoiceLibrary
+    });
+    registerFileDialogIpc({
+        dialog,
+        ipcMain
     });
     registerVideoExportIpc({
         createRenderer: (emitProgress) =>

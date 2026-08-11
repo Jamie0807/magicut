@@ -8,6 +8,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 
 import { renderToString } from '@vue/server-renderer';
 
+import CreateMainContent from '../renderer/components/create/CreateMainContent.vue';
 import VoiceSelect from '../renderer/components/create/VoiceSelect.vue';
 import { createPageContent } from '../renderer/constants/create';
 import HomePage from '../renderer/pages/HomePage.vue';
@@ -119,7 +120,48 @@ describe('CreateScreen', () => {
         expect(html).toContain('maxlength="10000"');
         expect(html).toContain('create-main-soft-aurora-layer');
         expect(html).toContain('soft-aurora-container');
+        expect(html).not.toContain('create-agent-progress');
         expect(html).not.toMatch(forbiddenBrandPattern);
+    });
+
+    it('keeps validation feedback inside the create form instead of showing agent progress', async () => {
+        const html = await renderComponent(CreateMainContent, {
+            agentEvents: [],
+            content: createPageContent,
+            validationErrorMessage: '请选择本地素材目录'
+        });
+
+        expect(html).toContain('请选择本地素材目录');
+        expect(html).toContain('role="alert"');
+        expect(html).not.toContain('create-agent-progress');
+    });
+
+    it('lays out the voice picker, source directory field, and create button without overlap', () => {
+        const inputPanelSource = readFileSync(
+            resolve(
+                desktopDirectory,
+                'renderer/components/create/CreateInputPanel.vue'
+            ),
+            'utf8'
+        );
+
+        expect(inputPanelSource).toContain('data-create-input-actions');
+        expect(inputPanelSource).toContain(
+            'grid-cols-[278px_minmax(0,1fr)_156px]'
+        );
+        expect(inputPanelSource).toContain('data-source-directory-field');
+        expect(inputPanelSource).toContain('选择本地视频素材目录');
+        expect(inputPanelSource).toContain(
+            'window.magicutAPI.fileDialog.selectSourceDirectory'
+        );
+        expect(inputPanelSource).toContain(
+            '@click="handleSourceDirectorySelect"'
+        );
+        expect(inputPanelSource).toContain('w-[156px]');
+        expect(inputPanelSource).not.toContain('absolute top-[313px]');
+        expect(inputPanelSource).not.toContain(
+            'placeholder="粘贴本地视频素材目录"'
+        );
     });
 
     it('keeps the SoftAurora visual layer backed by explicit style tokens and motion', () => {

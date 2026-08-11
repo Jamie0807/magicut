@@ -309,7 +309,7 @@ describe('create agent flow', () => {
 
         expect(mainContentSource).toContain('CreateAgentProgress');
         expect(inputPanelSource).toContain('本地素材目录');
-        expect(inputPanelSource).toContain('粘贴本地视频素材目录');
+        expect(inputPanelSource).toContain('选择本地视频素材目录');
         expect(inputPanelSource).toContain('data-agent-start-button');
     });
 

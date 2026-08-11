@@ -15,10 +15,12 @@ withDefaults(
         agentEvents?: DesktopAgentRunEvent[];
         content: CreatePageContent;
         isAgentBusy?: boolean;
+        validationErrorMessage?: string;
     }>(),
     {
         agentEvents: () => [],
-        isAgentBusy: false
+        isAgentBusy: false,
+        validationErrorMessage: undefined
     }
 );
 
@@ -55,6 +57,7 @@ const emit = defineEmits<{
                 <CreateHero :content="content" />
             </div>
             <div
+                v-if="agentEvents.length > 0"
                 class="absolute top-[238px] left-[460px] z-20 w-[650px] max-w-[calc(100%-920px)]"
             >
                 <CreateAgentProgress
@@ -70,6 +73,7 @@ const emit = defineEmits<{
                 <CreateInputPanel
                     :content="content"
                     :disabled="isAgentBusy"
+                    :validation-error-message="validationErrorMessage"
                     @submit="emit('agentSubmit', $event)"
                 />
             </div>

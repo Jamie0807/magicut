@@ -67,7 +67,7 @@ watch(isOpen, (open, _previous, onCleanup) => {
 </script>
 
 <template>
-    <div ref="container" class="absolute top-[300px] left-[42px]">
+    <div ref="container" class="relative">
         <button
             type="button"
             :aria-controls="listboxId"

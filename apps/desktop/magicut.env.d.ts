@@ -19,6 +19,13 @@ interface Window {
                 >
             >;
         };
+        fileDialog: {
+            selectSourceDirectory: () => Promise<
+                import('./shared/file-dialog').FileDialogOperationResult<
+                    import('./shared/file-dialog').FileDialogSelectSourceDirectoryData
+                >
+            >;
+        };
         ping: () => Promise<{ success: boolean }>;
         videoExport: {
             onProgress: (

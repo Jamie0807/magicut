@@ -4,6 +4,7 @@ import type { VideoProject } from '@magicut/video-project';
 
 import type { CustomVoiceImportInput } from '../shared/custom-voice';
 import { customVoiceIpcChannels } from '../shared/custom-voice-channels';
+import { fileDialogIpcChannels } from '../shared/file-dialog-channels';
 import type {
     DesktopAgentRunEvent,
     VideoAgentApprovalInput,
@@ -32,6 +33,10 @@ contextBridge.exposeInMainWorld('magicutAPI', {
                 input ?? {}
             ),
         list: async () => ipcRenderer.invoke(customVoiceIpcChannels.list)
+    },
+    fileDialog: {
+        selectSourceDirectory: async () =>
+            ipcRenderer.invoke(fileDialogIpcChannels.selectSourceDirectory)
     },
     videoExport: {
         onProgress: (listener: (event: VideoExportProgressEvent) => void) => {
