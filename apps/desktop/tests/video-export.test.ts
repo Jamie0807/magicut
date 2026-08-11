@@ -460,9 +460,9 @@ describe('video export', () => {
         );
 
         expect(forgeSource).toContain('extraResource');
-        expect(forgeSource).toContain("from: 'bin'");
-        expect(forgeSource).toContain("to: 'bin'");
-        expect(forgeSource).toContain("from: 'renderer/assets/song'");
-        expect(forgeSource).toContain("to: 'song'");
+        expect(forgeSource).toContain("'bin'");
+        expect(forgeSource).toContain("'renderer/assets/song'");
+        expect(forgeSource).toContain("['darwin', 'win32']");
+        expect(forgeSource).toContain('prune: false');
     });
 });

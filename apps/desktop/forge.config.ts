@@ -9,22 +9,14 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
     packagerConfig: {
-        extraResource: [
-            {
-                from: 'bin',
-                to: 'bin'
-            },
-            {
-                from: 'renderer/assets/song',
-                to: 'song'
-            }
-        ],
-        name: '智能剪辑平台'
+        extraResource: ['bin', 'renderer/assets/song'],
+        name: '智能剪辑平台',
+        prune: false
     },
     rebuildConfig: {},
     makers: [
         new MakerSquirrel({}),
-        new MakerZIP({}, ['darwin']),
+        new MakerZIP({}, ['darwin', 'win32']),
         new MakerRpm({}),
         new MakerDeb({})
     ],
