@@ -9,6 +9,16 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
     packagerConfig: {
+        extraResource: [
+            {
+                from: 'bin',
+                to: 'bin'
+            },
+            {
+                from: 'renderer/assets/song',
+                to: 'song'
+            }
+        ],
         name: '智能剪辑平台'
     },
     rebuildConfig: {},

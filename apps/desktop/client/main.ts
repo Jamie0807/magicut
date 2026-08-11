@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
 
@@ -10,6 +10,11 @@ import {
     createLangGraphVideoAgentController,
     registerVideoAgentIpc
 } from './video-agent-ipc';
+import { registerVideoExportIpc } from './video-export-ipc';
+import {
+    createVideoExportRenderer,
+    selectVideoExportOutputPath
+} from './video-export-service';
 import {
     createDefaultVideoProjectStore,
     registerVideoProjectIpc
@@ -45,6 +50,21 @@ app.whenReady().then(() => {
 
     registerVideoProjectIpc({ ipcMain, store: videoProjectStore });
     registerMediaProtocol({ store: videoProjectStore });
+    registerVideoExportIpc({
+        createRenderer: (emitProgress) =>
+            createVideoExportRenderer({
+                app,
+                dialog,
+                emitProgress
+            }),
+        ipcMain,
+        selectOutputPath: (input) =>
+            selectVideoExportOutputPath({
+                app,
+                dialog,
+                input
+            })
+    });
     registerVideoAgentIpc({
         controller: createLangGraphVideoAgentController({
             store: videoProjectStore,

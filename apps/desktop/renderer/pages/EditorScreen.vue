@@ -5,11 +5,14 @@ import type { VideoProject } from '@magicut/video-project';
 
 import ConfigPanel from '../components/config/ConfigPanel.vue';
 import EditorHeader from '../components/editor/EditorHeader.vue';
+import ExportProgressDialog from '../components/editor/ExportProgressDialog.vue';
+import type { ExportDialogState } from '../components/editor/ExportProgressDialog.vue';
 import ModeRail from '../components/editor/ModeRail.vue';
 import PreviewPanel from '../components/editor/PreviewPanel.vue';
 import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { defaultVideoAgentVoiceSettings } from '../../shared/video-agent-voices';
+import type { VideoExportProgressEvent } from '../../shared/video-export';
 import {
     defaultMusicSettings,
     defaultSubtitleSettings,
@@ -55,6 +58,9 @@ const isRegeneratingScene = shallowRef(false);
 const isRegeneratingVoices = shallowRef(false);
 const selectedSceneId = shallowRef<string | undefined>();
 const titleSaveStatus = shallowRef(editorHeader.status);
+const exportDialogState = shallowRef<ExportDialogState | undefined>();
+const exportOutputPath = shallowRef<string | undefined>();
+const exportProgress = shallowRef<VideoExportProgressEvent | undefined>();
 const musicSettings = shallowRef<MusicSettings>({
     ...defaultMusicSettings
 });
@@ -148,6 +154,110 @@ const handleProjectTitleChange = async (title: string) => {
             result.success === true ? '刚刚更新 · 已自动保存' : '标题保存失败';
     } catch {
         titleSaveStatus.value = '标题保存失败';
+    }
+};
+
+const openExportDialog = async () => {
+    exportDialogState.value = 'idle';
+    exportProgress.value = undefined;
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoExport) {
+        titleSaveStatus.value = '导出服务不可用';
+        return;
+    }
+
+    const result = await window.magicutAPI.videoExport.selectOutputPath({
+        projectTitle: editorTitle.value
+    });
+
+    if (result.success === false) {
+        exportDialogState.value = 'cancelled';
+        exportProgress.value = {
+            message: result.error.message,
+            percent: 100,
+            phase: 'cancelled'
+        };
+        return;
+    }
+
+    exportOutputPath.value = result.data.outputPath;
+};
+
+const closeExportDialog = () => {
+    if (exportDialogState.value === 'running') return;
+
+    exportDialogState.value = undefined;
+    exportProgress.value = undefined;
+};
+
+const startExport = async () => {
+    const project = currentProject.value;
+
+    if (!project || typeof window === 'undefined') return;
+
+    const videoExport = window.magicutAPI?.videoExport;
+
+    if (!videoExport) {
+        exportDialogState.value = 'failed';
+        exportProgress.value = {
+            message: '导出服务不可用',
+            percent: 100,
+            phase: 'failed'
+        };
+        return;
+    }
+
+    exportDialogState.value = 'running';
+    titleSaveStatus.value = '正在导出视频';
+
+    const unsubscribe = videoExport.onProgress((event) => {
+        exportProgress.value = event;
+        exportDialogState.value =
+            event.phase === 'completed' ||
+            event.phase === 'failed' ||
+            event.phase === 'cancelled'
+                ? event.phase
+                : 'running';
+    });
+
+    try {
+        const result = await videoExport.render({
+            musicSettings: musicSettings.value,
+            outputPath: exportOutputPath.value,
+            project,
+            subtitleSettings: subtitleSettings.value
+        });
+
+        if (result.success === false) {
+            exportDialogState.value =
+                result.error.code === 'CANCELLED' ? 'cancelled' : 'failed';
+            exportProgress.value = {
+                message: result.error.message,
+                percent: 100,
+                phase: exportDialogState.value
+            };
+            titleSaveStatus.value = '视频导出失败';
+            return;
+        }
+
+        exportOutputPath.value = result.data.outputPath;
+        exportDialogState.value = 'completed';
+        exportProgress.value = {
+            message: '导出完成',
+            percent: 100,
+            phase: 'completed'
+        };
+        titleSaveStatus.value = '视频导出完成';
+    } catch {
+        exportDialogState.value = 'failed';
+        exportProgress.value = {
+            message: '视频导出失败',
+            percent: 100,
+            phase: 'failed'
+        };
+        titleSaveStatus.value = '视频导出失败';
+    } finally {
+        unsubscribe();
     }
 };
 
@@ -379,6 +489,9 @@ watch(
         isRegeneratingScene.value = false;
         isRegeneratingVoices.value = false;
         selectedSceneId.value = undefined;
+        exportDialogState.value = undefined;
+        exportOutputPath.value = undefined;
+        exportProgress.value = undefined;
         musicSettings.value = { ...defaultMusicSettings };
         subtitleSettings.value = { ...defaultSubtitleSettings };
         titleSaveStatus.value = editorHeader.status;
@@ -425,6 +538,7 @@ watch(
             <EditorHeader
                 :title="editorTitle"
                 :status="titleSaveStatus"
+                @export-click="openExportDialog"
                 @title-change="handleProjectTitleChange"
             />
             <section
@@ -473,6 +587,15 @@ watch(
                 @pointer-time-commit="commitPreviewTime"
                 @pointer-time-preview="previewTimelineTime"
                 @scene-select="handleSceneSelect"
+            />
+            <ExportProgressDialog
+                :duration-ms="editorData.preview.durationMs"
+                :output-path="exportOutputPath"
+                :progress="exportProgress"
+                :state="exportDialogState"
+                @choose-path="openExportDialog"
+                @close="closeExportDialog"
+                @start-export="startExport"
             />
         </div>
     </main>

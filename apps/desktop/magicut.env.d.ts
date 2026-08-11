@@ -1,6 +1,23 @@
 interface Window {
     magicutAPI: {
         ping: () => Promise<{ success: boolean }>;
+        videoExport: {
+            onProgress: (
+                listener: (
+                    event: import('./shared/video-export').VideoExportProgressEvent
+                ) => void
+            ) => () => void;
+            render: (
+                input: import('./shared/video-export').VideoExportRenderInput
+            ) => Promise<
+                import('./shared/video-export').VideoExportOperationResult
+            >;
+            selectOutputPath: (
+                input: import('./shared/video-export').VideoExportSelectOutputPathInput
+            ) => Promise<
+                import('./shared/video-export').VideoExportOperationResult
+            >;
+        };
         videoAgent: {
             approve: (
                 input: import('./shared/video-agent').VideoAgentApprovalInput

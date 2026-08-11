@@ -307,6 +307,43 @@ describe('EditorScreen', () => {
         expect(editorSource).toContain('标题保存失败');
     });
 
+    it('wires final video export through the editor header and progress dialog', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const headerSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/editor/EditorHeader.vue'
+            ),
+            'utf8'
+        );
+        const dialogSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/editor/ExportProgressDialog.vue'
+            ),
+            'utf8'
+        );
+
+        expect(headerSource).toContain('exportClick');
+        expect(headerSource).toContain('@click');
+        expect(editorSource).toContain('ExportProgressDialog');
+        expect(editorSource).toContain('window.magicutAPI.videoExport');
+        expect(editorSource).toContain('selectOutputPath');
+        expect(editorSource).toContain('videoExport.render');
+        expect(editorSource).toContain('musicSettings: musicSettings.value');
+        expect(editorSource).toContain(
+            'subtitleSettings: subtitleSettings.value'
+        );
+        expect(editorSource).toContain('@export-click="openExportDialog"');
+        expect(dialogSource).toContain('role="dialog"');
+        expect(dialogSource).toContain('开始导出');
+        expect(dialogSource).toContain('选择路径');
+        expect(dialogSource).toContain('data-export-progress-dialog="true"');
+    });
+
     it('uses voice config as the default renderer strategy', () => {
         expect(editorConfigMode).toBe('voice');
     });

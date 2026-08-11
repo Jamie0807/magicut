@@ -11,10 +11,39 @@ import type {
     VideoAgentStartInput
 } from '../shared/video-agent';
 import { videoAgentIpcChannels } from '../shared/video-agent-channels';
+import type {
+    VideoExportProgressEvent,
+    VideoExportRenderInput,
+    VideoExportSelectOutputPathInput
+} from '../shared/video-export';
+import { videoExportIpcChannels } from '../shared/video-export-channels';
 import { videoProjectIpcChannels } from '../shared/video-project-channels';
 
 contextBridge.exposeInMainWorld('magicutAPI', {
     ping: async () => ({ success: true }),
+    videoExport: {
+        onProgress: (listener: (event: VideoExportProgressEvent) => void) => {
+            const subscription = (
+                _event: IpcRendererEvent,
+                event: VideoExportProgressEvent
+            ) => {
+                listener(event);
+            };
+
+            ipcRenderer.on(videoExportIpcChannels.progress, subscription);
+
+            return () => {
+                ipcRenderer.removeListener(
+                    videoExportIpcChannels.progress,
+                    subscription
+                );
+            };
+        },
+        render: async (input: VideoExportRenderInput) =>
+            ipcRenderer.invoke(videoExportIpcChannels.render, input),
+        selectOutputPath: async (input: VideoExportSelectOutputPathInput) =>
+            ipcRenderer.invoke(videoExportIpcChannels.selectOutputPath, input)
+    },
     videoAgent: {
         approve: async (input: VideoAgentApprovalInput) =>
             ipcRenderer.invoke(videoAgentIpcChannels.approve, input),

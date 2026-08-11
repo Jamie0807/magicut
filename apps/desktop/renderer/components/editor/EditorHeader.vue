@@ -18,6 +18,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
+    exportClick: [];
     titleChange: [title: string];
 }>();
 
@@ -92,6 +93,7 @@ watch(
             <button
                 type="button"
                 class="flex h-9 items-center gap-2 rounded-lg bg-[#F05F73] px-4 text-[13px] font-[750] text-white shadow-[0_10px_22px_rgba(240,95,115,0.22)] [app-region:no-drag]"
+                @click="emit('exportClick')"
             >
                 <IconGlyph name="download" />
                 {{ editorHeader.primaryAction }}
