@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
 
+import { registerCustomVoiceIpc } from './custom-voice-ipc';
+import { createCustomVoiceLibrary } from './custom-voice-library';
 import {
     registerMediaProtocol,
     registerMediaProtocolSchemePrivileges
@@ -47,9 +49,20 @@ const createWindow = () => {
 app.whenReady().then(() => {
     const videoProjectStore = createDefaultVideoProjectStore();
     const agentRunDirectory = path.join(app.getPath('userData'), 'agent-runs');
+    const customVoiceLibrary = createCustomVoiceLibrary({
+        rootDirectory: path.join(app.getPath('userData'), 'custom-voices')
+    });
 
     registerVideoProjectIpc({ ipcMain, store: videoProjectStore });
-    registerMediaProtocol({ store: videoProjectStore });
+    registerMediaProtocol({
+        customVoiceReferenceResolver: customVoiceLibrary.resolveReferencePath,
+        store: videoProjectStore
+    });
+    registerCustomVoiceIpc({
+        dialog,
+        ipcMain,
+        library: customVoiceLibrary
+    });
     registerVideoExportIpc({
         createRenderer: (emitProgress) =>
             createVideoExportRenderer({
@@ -67,6 +80,8 @@ app.whenReady().then(() => {
     });
     registerVideoAgentIpc({
         controller: createLangGraphVideoAgentController({
+            customVoiceReferenceResolver:
+                customVoiceLibrary.resolveReferencePath,
             store: videoProjectStore,
             voiceOutputDirectory: path.join(agentRunDirectory, 'voices')
         }),

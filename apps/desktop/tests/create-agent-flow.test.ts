@@ -6,6 +6,21 @@ import { describe, expect, it } from 'vitest';
 
 import { sampleVideoProject, type VideoProject } from '@magicut/video-project';
 
+const waitFor = async (
+    predicate: () => boolean,
+    message: string,
+    timeoutMs = 1000
+) => {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        if (predicate()) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    throw new Error(message);
+};
+
 describe('create agent flow', () => {
     it('creates spoken fallback scripts instead of storyboard planning labels', async () => {
         const { createDesktopVideoAgentTools } = await import(
@@ -1174,6 +1189,18 @@ describe('create agent flow', () => {
                 throw new Error(result.error.message);
             }
 
+            await waitFor(
+                () =>
+                    events.some(
+                        (event) =>
+                            typeof event === 'object' &&
+                            event !== null &&
+                            'type' in event &&
+                            event.type === 'run.completed'
+                    ),
+                'Timed out waiting for voice regeneration completion'
+            );
+
             const loaded = await store.readProjectById({
                 projectId: 'project_sample_001'
             });
@@ -1268,6 +1295,170 @@ describe('create agent flow', () => {
             expect(events).toContainEqual(
                 expect.objectContaining({
                     projectId: 'project_sample_001',
+                    type: 'run.completed'
+                })
+            );
+        } finally {
+            await rm(projectsDirectory, { force: true, recursive: true });
+        }
+    });
+
+    it('returns voice regeneration run id immediately and lets callers cancel it', async () => {
+        const projectsDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-projects-')
+        );
+
+        try {
+            const { createVideoProjectStore } = await import(
+                '../client/video-project-store'
+            );
+            const { createLangGraphVideoAgentController } = await import(
+                '../client/video-agent-ipc'
+            );
+            const store = createVideoProjectStore({ projectsDirectory });
+            const project: VideoProject = {
+                ...structuredClone(sampleVideoProject),
+                assets: {
+                    ...structuredClone(sampleVideoProject.assets),
+                    subtitles: [
+                        ...structuredClone(sampleVideoProject.assets.subtitles),
+                        {
+                            id: 'subtitle_asset_scene_001_01',
+                            styleId: 'subtitle_style_default',
+                            text: '第一条口播文案。'
+                        },
+                        {
+                            id: 'subtitle_asset_scene_001_02',
+                            styleId: 'subtitle_style_default',
+                            text: '第二条口播文案。'
+                        }
+                    ]
+                },
+                scenes: sampleVideoProject.scenes.map((scene) => ({
+                    ...scene,
+                    subtitleIds: [
+                        'subtitle_asset_scene_001_01',
+                        'subtitle_asset_scene_001_02'
+                    ]
+                }))
+            };
+            const saved = await store.createProject({ project });
+
+            if (saved.success === false) {
+                throw new Error(saved.error.message);
+            }
+
+            let releaseFirstSynthesis: (() => void) | undefined;
+            const firstSynthesisStarted = new Promise<void>(
+                (resolveStarted) => {
+                    releaseFirstSynthesis = resolveStarted;
+                }
+            );
+            const ttsCalls: string[] = [];
+            const controller = createLangGraphVideoAgentController({
+                createRunId: () => 'voice_regen_cancel_test',
+                modelProvider: {
+                    describeFrames: async () => [] as never[],
+                    embedTexts: async () => [] as never[],
+                    generateCreativeBrief: async () => {
+                        throw new Error('model should not be called');
+                    },
+                    planScenes: async () => {
+                        throw new Error('model should not be called');
+                    },
+                    rankAssetMatches: async () => {
+                        throw new Error('model should not be called');
+                    }
+                },
+                store,
+                ttsProvider: {
+                    synthesizeSpeech: async ({ outputPath, text }) => {
+                        ttsCalls.push(text);
+                        releaseFirstSynthesis?.();
+
+                        await new Promise((resolveSynthesis) => {
+                            setTimeout(resolveSynthesis, 40);
+                        });
+                        await writeFile(outputPath, new Uint8Array([1, 2, 3]));
+
+                        return {
+                            byteLength: 3,
+                            durationMs: 3000,
+                            format: 'mp3' as const,
+                            path: outputPath
+                        };
+                    }
+                },
+                voiceOutputDirectory: path.join(projectsDirectory, 'voices')
+            });
+            const events: unknown[] = [];
+            const result = await Promise.race([
+                controller.regenerateVoices(
+                    {
+                        projectId: 'project_sample_001',
+                        selectedVoice: '温婉学姐',
+                        selectedVoiceType: 'zh_female_wenroushunv_uranus_bigtts'
+                    },
+                    (event) => events.push(event)
+                ),
+                new Promise<'timeout'>((resolveTimeout) => {
+                    setTimeout(() => resolveTimeout('timeout'), 10);
+                })
+            ]);
+
+            expect(result).not.toBe('timeout');
+            expect(result).toMatchObject({
+                data: {
+                    projectId: 'project_sample_001',
+                    runId: 'voice_regen_cancel_test'
+                },
+                success: true
+            });
+
+            await firstSynthesisStarted;
+
+            const cancelResult = await controller.cancel(
+                {
+                    runId: 'voice_regen_cancel_test'
+                },
+                (event) => events.push(event)
+            );
+
+            expect(cancelResult).toEqual({
+                data: {
+                    runId: 'voice_regen_cancel_test'
+                },
+                success: true
+            });
+
+            await waitFor(
+                () =>
+                    events.some(
+                        (event) =>
+                            typeof event === 'object' &&
+                            event !== null &&
+                            'type' in event &&
+                            event.type === 'run.cancelled'
+                    ),
+                'Timed out waiting for voice regeneration cancellation'
+            );
+
+            expect(ttsCalls).toEqual(['第一条口播文案。']);
+            expect(events).toContainEqual(
+                expect.objectContaining({
+                    current: 1,
+                    total: 2,
+                    type: 'voice.regeneration.progress'
+                })
+            );
+            expect(events).toContainEqual(
+                expect.objectContaining({
+                    reason: '用户取消口播音轨生成',
+                    type: 'run.cancelled'
+                })
+            );
+            expect(events).not.toContainEqual(
+                expect.objectContaining({
                     type: 'run.completed'
                 })
             );

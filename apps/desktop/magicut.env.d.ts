@@ -1,5 +1,24 @@
 interface Window {
     magicutAPI: {
+        customVoice: {
+            checkIndexTts2: () => Promise<
+                import('./shared/custom-voice').CustomVoiceOperationResult<
+                    import('./shared/custom-voice').CustomVoiceProviderStatus
+                >
+            >;
+            importReferenceAudio: (
+                input?: import('./shared/custom-voice').CustomVoiceImportInput
+            ) => Promise<
+                import('./shared/custom-voice').CustomVoiceOperationResult<
+                    import('./shared/custom-voice').CustomVoiceImportData
+                >
+            >;
+            list: () => Promise<
+                import('./shared/custom-voice').CustomVoiceOperationResult<
+                    import('./shared/custom-voice').CustomVoiceItem[]
+                >
+            >;
+        };
         ping: () => Promise<{ success: boolean }>;
         videoExport: {
             onProgress: (

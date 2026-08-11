@@ -8,8 +8,10 @@ import {
     type AgentRunEvent,
     ArkChatModelProvider,
     createVideoCreationGraph,
+    IndexTts2Provider,
     loadAgentEnv,
     type ModelProvider,
+    RoutingTtsProvider,
     serializeError,
     type TtsProvider,
     type VideoCreationGraphRunner,
@@ -31,7 +33,10 @@ import { normalizeVideoAgentVoiceSettings } from '../shared/video-agent-voices';
 
 import { regenerateVideoProjectScene } from './video-agent-scene-regeneration';
 import { createDesktopVideoAgentTools } from './video-agent-tools';
-import { regenerateVideoProjectVoices } from './video-agent-voice-regeneration';
+import {
+    isVoiceRegenerationCancelled,
+    regenerateVideoProjectVoices
+} from './video-agent-voice-regeneration';
 import type { VideoProjectStore } from './video-project-store';
 
 export { videoAgentIpcChannels };
@@ -97,6 +102,13 @@ type LangGraphVideoAgentRunState = {
     sequence: number;
 };
 
+type VoiceRegenerationRunState = {
+    cancelEventEmitted: boolean;
+    cancelled: boolean;
+    runId: string;
+    sequence: number;
+};
+
 type LangGraphRunnerFactory = (input: {
     emit: (event: AgentRunEvent) => void;
     getSelectedVoice: (runId: string) => string | undefined;
@@ -104,6 +116,9 @@ type LangGraphRunnerFactory = (input: {
 }) => VideoCreationGraphRunner;
 
 type ProviderFactoryInput = {
+    customVoiceReferenceResolver?: (
+        voiceId: string
+    ) => Promise<string> | string;
     loadEnv?: () => AgentEnv;
     modelProvider?: ModelProvider;
     ttsProvider?: TtsProvider;
@@ -189,6 +204,7 @@ const findAgentEnvFilePath = () => {
 };
 
 const createDefaultProviders = ({
+    customVoiceReferenceResolver,
     loadEnv,
     modelProvider,
     ttsProvider
@@ -202,10 +218,21 @@ const createDefaultProviders = ({
 
     const env =
         loadEnv?.() ?? loadAgentEnv({ envFilePath: findAgentEnvFilePath() });
+    const defaultTtsProvider =
+        ttsProvider ?? new VolcengineTtsProvider({ env });
+    const resolvedTtsProvider =
+        ttsProvider || !customVoiceReferenceResolver
+            ? defaultTtsProvider
+            : new RoutingTtsProvider({
+                  customProvider: new IndexTts2Provider({
+                      resolveVoiceReferencePath: customVoiceReferenceResolver
+                  }),
+                  defaultProvider: defaultTtsProvider
+              });
 
     return {
         modelProvider: modelProvider ?? new ArkChatModelProvider({ env }),
-        ttsProvider: ttsProvider ?? new VolcengineTtsProvider({ env })
+        ttsProvider: resolvedTtsProvider
     };
 };
 
@@ -558,6 +585,7 @@ export const createDemoVideoAgentController = ({
 export const createLangGraphVideoAgentController = ({
     createRunId = () => `run_${randomUUID()}`,
     createRunner,
+    customVoiceReferenceResolver,
     loadEnv,
     modelProvider,
     now = () => new Date().toISOString(),
@@ -567,6 +595,9 @@ export const createLangGraphVideoAgentController = ({
 }: {
     createRunId?: () => string;
     createRunner?: LangGraphRunnerFactory;
+    customVoiceReferenceResolver?: (
+        voiceId: string
+    ) => Promise<string> | string;
     loadEnv?: () => AgentEnv;
     modelProvider?: ModelProvider;
     now?: () => string;
@@ -576,6 +607,7 @@ export const createLangGraphVideoAgentController = ({
 }): VideoAgentIpcController => {
     const activeEmitters = new Map<string, VideoAgentEventEmitter>();
     const runs = new Map<string, LangGraphVideoAgentRunState>();
+    const voiceRegenerationRuns = new Map<string, VoiceRegenerationRunState>();
     const getSelectedVoice = (runId: string) =>
         runs.get(runId)?.input.selectedVoice;
     const getSelectedVoiceType = (runId: string) =>
@@ -595,6 +627,7 @@ export const createLangGraphVideoAgentController = ({
         if (providers) return providers;
 
         providers = createDefaultProviders({
+            customVoiceReferenceResolver,
             loadEnv,
             modelProvider,
             ttsProvider
@@ -632,9 +665,28 @@ export const createLangGraphVideoAgentController = ({
 
         return runner;
     };
+    const createScopedRunId = (prefix: string) => {
+        const runId = createRunId();
+
+        return runId.startsWith(prefix) ? runId : `${prefix}_${runId}`;
+    };
 
     const emitForRun = (
         state: LangGraphVideoAgentRunState,
+        event: UnsequencedDesktopAgentRunEvent,
+        emit: VideoAgentEventEmitter
+    ) => {
+        state.sequence += 1;
+        emit({
+            ...event,
+            createdAt: now(),
+            runId: state.runId,
+            sequence: state.sequence
+        } as DesktopAgentRunEvent);
+    };
+
+    const emitForVoiceRegenerationRun = (
+        state: VoiceRegenerationRunState,
         event: UnsequencedDesktopAgentRunEvent,
         emit: VideoAgentEventEmitter
     ) => {
@@ -707,6 +759,30 @@ export const createLangGraphVideoAgentController = ({
             });
         },
         cancel: async (input, emit) => {
+            const voiceRegenerationState = voiceRegenerationRuns.get(
+                input.runId
+            );
+
+            if (voiceRegenerationState) {
+                voiceRegenerationState.cancelled = true;
+
+                if (!voiceRegenerationState.cancelEventEmitted) {
+                    voiceRegenerationState.cancelEventEmitted = true;
+                    emitForVoiceRegenerationRun(
+                        voiceRegenerationState,
+                        {
+                            reason: '用户取消口播音轨生成',
+                            type: 'run.cancelled'
+                        },
+                        emit
+                    );
+                }
+
+                return success({
+                    runId: input.runId
+                });
+            }
+
             const state = runs.get(input.runId);
 
             if (!state) {
@@ -773,28 +849,59 @@ export const createLangGraphVideoAgentController = ({
                 });
             }
 
-            try {
-                const providers = getProviders();
-                const result = await regenerateVideoProjectVoices({
-                    createRunId,
-                    emit,
-                    input,
-                    now,
-                    store,
-                    ttsProvider: providers.ttsProvider,
-                    voiceOutputDirectory
-                });
+            const runId = createScopedRunId('voice_regen');
+            const state: VoiceRegenerationRunState = {
+                cancelEventEmitted: false,
+                cancelled: false,
+                runId,
+                sequence: 0
+            };
+            voiceRegenerationRuns.set(runId, state);
 
-                return success({
-                    projectId: result.project.project.id,
-                    runId: result.runId
-                });
-            } catch (error) {
-                return failure({
-                    code: 'RUN_FAILED',
-                    message: serializeError(error)
-                });
-            }
+            const runInBackground = async () => {
+                try {
+                    await regenerateVideoProjectVoices({
+                        createRunId: () => runId,
+                        emit,
+                        emitForRun: (event) => {
+                            emitForVoiceRegenerationRun(state, event, emit);
+                        },
+                        input,
+                        isCancelled: () => state.cancelled,
+                        now,
+                        runId,
+                        store,
+                        ttsProvider: getProviders().ttsProvider,
+                        voiceOutputDirectory
+                    });
+                } catch (error) {
+                    if (
+                        state.cancelled &&
+                        (state.cancelEventEmitted ||
+                            isVoiceRegenerationCancelled(error))
+                    ) {
+                        return;
+                    }
+
+                    emitForVoiceRegenerationRun(
+                        state,
+                        {
+                            error: serializeError(error),
+                            type: 'run.failed'
+                        },
+                        emit
+                    );
+                } finally {
+                    voiceRegenerationRuns.delete(runId);
+                }
+            };
+
+            void runInBackground();
+
+            return success({
+                projectId: input.projectId,
+                runId
+            });
         },
         start: async (rawInput, emit) => {
             const input = normalizeStartInput(rawInput);

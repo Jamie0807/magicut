@@ -71,6 +71,13 @@ export {
     ArkChatModelProvider,
     ModelProviderSchemaError
 } from './providers/ark-chat-model-provider';
+export {
+    createCustomIndexTts2VoiceType,
+    IndexTts2Provider,
+    IndexTts2ProviderError,
+    parseCustomIndexTts2VoiceId,
+    RoutingTtsProvider
+} from './providers/index-tts2-provider';
 export type {
     ModelProvider,
     ModelReportInput,

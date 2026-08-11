@@ -99,4 +99,45 @@ describe('media protocol', () => {
 
         expect(response.status).toBe(400);
     });
+
+    it('resolves custom voice preview URLs without exposing local file paths to the renderer', async () => {
+        const fetchedFiles: string[] = [];
+        const { createCustomVoicePreviewUrl, parseCustomVoicePreviewUrl } =
+            await import('../shared/media-protocol');
+        const { createMediaProtocolHandler } = await import(
+            '../client/media-protocol'
+        );
+        const previewUrl = createCustomVoicePreviewUrl({
+            voiceId: 'voice_001'
+        });
+        const handler = createMediaProtocolHandler({
+            customVoiceReferenceResolver: async (voiceId) => {
+                expect(voiceId).toBe('voice_001');
+
+                return '/Users/jamie/Library/Application Support/magicut/custom-voices/voice_001/reference.wav';
+            },
+            fetchMediaFile: async ({ filePath }) => {
+                fetchedFiles.push(filePath);
+
+                return new Response('voice');
+            },
+            store: {
+                readProjectById: async () => {
+                    throw new Error('store should not be called');
+                }
+            } as unknown as VideoProjectStore
+        });
+        const response = await handler(new Request(previewUrl));
+
+        expect(previewUrl).toBe(
+            'magicut-media://custom-voice/voice_001/reference'
+        );
+        expect(parseCustomVoicePreviewUrl(previewUrl)).toEqual({
+            voiceId: 'voice_001'
+        });
+        expect(await response.text()).toBe('voice');
+        expect(fetchedFiles).toEqual([
+            '/Users/jamie/Library/Application Support/magicut/custom-voices/voice_001/reference.wav'
+        ]);
+    });
 });

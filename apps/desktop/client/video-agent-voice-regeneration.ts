@@ -27,8 +27,11 @@ import type { VideoProjectStore } from './video-project-store';
 type VoiceRegenerationInput = {
     createRunId: () => string;
     emit: VideoAgentEventEmitter;
+    emitForRun?: (event: UnsequencedDesktopAgentRunEvent) => void;
     input: VideoAgentRegenerateVoicesInput;
+    isCancelled?: () => boolean;
     now: () => string;
+    runId?: string;
     store: VideoProjectStore;
     ttsProvider: TtsProvider;
     voiceOutputDirectory: string;
@@ -68,6 +71,13 @@ type VoiceSegment = VoiceLine & {
     startMs: number;
 };
 
+class VoiceRegenerationCancelledError extends Error {
+    constructor() {
+        super('口播音轨生成已取消');
+        this.name = 'VoiceRegenerationCancelledError';
+    }
+}
+
 const padIndex = (index: number) => String(index).padStart(3, '0');
 const readableTextPattern = /[\p{L}\p{N}]/u;
 
@@ -78,6 +88,9 @@ const createSafeId = (value: string) => {
 };
 
 const hasReadableText = (text: string) => readableTextPattern.test(text);
+
+const isVoiceRegenerationCancelled = (error: unknown) =>
+    error instanceof VoiceRegenerationCancelledError;
 
 const isVideoClip = (clip: TimelineClip): clip is VideoClip =>
     clip.kind === 'video';
@@ -165,13 +178,17 @@ const createSceneVoiceLines = ({
 };
 
 const synthesizeVoices = async ({
+    emitForRun,
     input,
+    isCancelled,
     linesBySceneId,
     runId,
     ttsProvider,
     voiceOutputDirectory
 }: {
+    emitForRun: (event: UnsequencedDesktopAgentRunEvent) => void;
     input: VideoAgentRegenerateVoicesInput;
+    isCancelled?: () => boolean;
     linesBySceneId: Map<string, VoiceLine[]>;
     runId: string;
     ttsProvider: TtsProvider;
@@ -180,12 +197,24 @@ const synthesizeVoices = async ({
     const voice = input.selectedVoiceType ?? defaultVideoAgentVoice.voiceType;
     const safeRunId = createSafeId(runId);
     const synthesized = new Map<string, VoiceSegment[]>();
+    const total = [...linesBySceneId.values()].reduce(
+        (count, lines) => count + lines.length,
+        0
+    );
+    let completed = 0;
+    const throwIfCancelled = () => {
+        if (isCancelled?.()) {
+            throw new VoiceRegenerationCancelledError();
+        }
+    };
 
     for (const [sceneId, lines] of linesBySceneId) {
         const safeSceneId = createSafeId(sceneId);
         const segments: VoiceSegment[] = [];
 
         for (const line of lines) {
+            throwIfCancelled();
+
             const outputPath = path.join(
                 voiceOutputDirectory,
                 `${safeRunId}-${safeSceneId}-voice-${padIndex(
@@ -194,11 +223,31 @@ const synthesizeVoices = async ({
             );
 
             await mkdir(path.dirname(outputPath), { recursive: true });
+            emitForRun({
+                current: completed + 1,
+                message: `正在合成第 ${completed + 1} / ${total} 条口播`,
+                percent:
+                    total > 0 ? Math.round((completed / total) * 100) : 100,
+                text: line.text,
+                total,
+                type: 'voice.regeneration.progress'
+            });
 
             const result = await ttsProvider.synthesizeSpeech({
                 outputPath,
                 text: line.text,
                 voice
+            });
+            throwIfCancelled();
+            completed += 1;
+            emitForRun({
+                current: completed,
+                message: `已完成第 ${completed} / ${total} 条口播`,
+                percent:
+                    total > 0 ? Math.round((completed / total) * 100) : 100,
+                text: line.text,
+                total,
+                type: 'voice.regeneration.progress'
             });
 
             segments.push({
@@ -451,8 +500,11 @@ const rebuildTracks = ({
 export const regenerateVideoProjectVoices = async ({
     createRunId,
     emit,
+    emitForRun: scopedEmitForRun,
     input,
+    isCancelled,
     now,
+    runId: providedRunId,
     store,
     ttsProvider,
     voiceOutputDirectory
@@ -468,16 +520,23 @@ export const regenerateVideoProjectVoices = async ({
         throw new Error('请选择音色');
     }
 
-    const runId = createRunId();
+    const runId = providedRunId ?? createRunId();
     let sequence = 0;
-    const emitForRun = (event: UnsequencedDesktopAgentRunEvent) => {
-        sequence += 1;
-        emit({
-            ...event,
-            createdAt: now(),
-            runId,
-            sequence
-        } as DesktopAgentRunEvent);
+    const emitForRun =
+        scopedEmitForRun ??
+        ((event: UnsequencedDesktopAgentRunEvent) => {
+            sequence += 1;
+            emit({
+                ...event,
+                createdAt: now(),
+                runId,
+                sequence
+            } as DesktopAgentRunEvent);
+        });
+    const throwIfCancelled = () => {
+        if (isCancelled?.()) {
+            throw new VoiceRegenerationCancelledError();
+        }
     };
 
     const loaded = await store.readProjectById({ projectId });
@@ -485,6 +544,8 @@ export const regenerateVideoProjectVoices = async ({
     if (loaded.success === false) {
         throw new Error(loaded.error.message);
     }
+
+    throwIfCancelled();
 
     const project = loaded.data;
     const voiceSettings = normalizeVideoAgentVoiceSettings(input);
@@ -504,15 +565,18 @@ export const regenerateVideoProjectVoices = async ({
     });
 
     const synthesized = await synthesizeVoices({
+        emitForRun,
         input: {
             ...input,
             selectedVoice
         },
+        isCancelled,
         linesBySceneId,
         runId,
         ttsProvider,
         voiceOutputDirectory
     });
+    throwIfCancelled();
     const timed = createTimedScenes({
         project,
         segmentsBySceneId: synthesized,
@@ -529,6 +593,7 @@ export const regenerateVideoProjectVoices = async ({
         nodeName: 'project_save',
         type: 'node.started'
     });
+    throwIfCancelled();
 
     const voiceTrack = getTrack(project.tracks, 'voice');
     const oldVoiceAssetIds = new Set([
@@ -601,6 +666,8 @@ export const regenerateVideoProjectVoices = async ({
         throw new Error(saved.error.message);
     }
 
+    throwIfCancelled();
+
     emitForRun({
         nodeName: 'project_save',
         type: 'node.completed'
@@ -617,3 +684,5 @@ export const regenerateVideoProjectVoices = async ({
         savedProjectPath: saved.data.filePath
     };
 };
+
+export { isVoiceRegenerationCancelled };

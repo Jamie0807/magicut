@@ -6,6 +6,7 @@ import type { VideoProject } from '@magicut/video-project';
 import {
     type MediaAssetKind,
     mediaProtocolScheme,
+    parseCustomVoicePreviewUrl,
     parseMediaAssetUrl
 } from '../shared/media-protocol';
 
@@ -32,6 +33,10 @@ type FetchMediaFile = (input: {
     filePath: string;
     request: Request;
 }) => Promise<Response>;
+
+type CustomVoiceReferenceResolver = (
+    voiceId: string
+) => Promise<string> | string;
 
 export const registerMediaProtocolSchemePrivileges = () => {
     protocol.registerSchemesAsPrivileged([mediaProtocolPrivilege]);
@@ -69,13 +74,39 @@ const defaultFetchMediaFile: FetchMediaFile = ({ filePath, request }) =>
     });
 
 export const createMediaProtocolHandler = ({
+    customVoiceReferenceResolver,
     fetchMediaFile = defaultFetchMediaFile,
     store
 }: {
+    customVoiceReferenceResolver?: CustomVoiceReferenceResolver;
     fetchMediaFile?: FetchMediaFile;
     store: VideoProjectStore;
 }) => {
     return async (request: Request) => {
+        const customVoiceRequest = parseCustomVoicePreviewUrl(request.url);
+
+        if (customVoiceRequest) {
+            if (!customVoiceReferenceResolver) {
+                return createTextResponse(
+                    'Custom voice resolver not found',
+                    404
+                );
+            }
+
+            try {
+                const filePath = await customVoiceReferenceResolver(
+                    customVoiceRequest.voiceId
+                );
+
+                return fetchMediaFile({
+                    filePath,
+                    request
+                });
+            } catch {
+                return createTextResponse('Custom voice not found', 404);
+            }
+        }
+
         const mediaRequest = parseMediaAssetUrl(request.url);
 
         if (!mediaRequest) {
@@ -108,14 +139,16 @@ export const createMediaProtocolHandler = ({
 };
 
 export const registerMediaProtocol = ({
+    customVoiceReferenceResolver,
     protocolModule = protocol,
     store
 }: {
+    customVoiceReferenceResolver?: CustomVoiceReferenceResolver;
     protocolModule?: MediaProtocolModule;
     store: VideoProjectStore;
 }) => {
     protocolModule.handle(
         mediaProtocolScheme,
-        createMediaProtocolHandler({ store })
+        createMediaProtocolHandler({ customVoiceReferenceResolver, store })
     );
 };

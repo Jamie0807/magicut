@@ -1,5 +1,9 @@
 import type { AgentConversationMessage } from '@magicut/video-project';
 
+import type {
+    CustomVoiceItem,
+    CustomVoiceProviderStatus
+} from '../../shared/custom-voice';
 import type { VideoAgentVoiceSettings } from '../../shared/video-agent-voices';
 
 import type { EditorIconName } from './editor-screen';
@@ -8,10 +12,19 @@ export type ConfigMode = 'visual' | 'voice' | 'subtitle' | 'music';
 
 export type ConfigPanelContext = {
     conversation?: AgentConversationMessage[];
+    customVoiceStatus?: CustomVoiceProviderStatus;
+    customVoices?: CustomVoiceItem[];
     isRegeneratingScene?: boolean;
     isRegeneratingVoices?: boolean;
+    isUploadingCustomVoice?: boolean;
     musicSettings?: MusicSettings;
     onClearSelectedScene?: () => void;
+    onCancelRegenerateVoices?: () => Promise<void> | void;
+    onImportCustomVoice?: () =>
+        | Promise<CustomVoiceItem | undefined>
+        | CustomVoiceItem
+        | undefined
+        | void;
     onMusicSettingsChange?: (settings: MusicSettings) => void;
     onRegenerateScene?: (input: {
         prompt: string;
@@ -22,6 +35,7 @@ export type ConfigPanelContext = {
         selectedVoiceType?: string;
     }) => Promise<void> | void;
     onSubtitleSettingsChange?: (settings: SubtitleSettings) => void;
+    onVoiceSelectionChange?: (selection: VoiceSelection) => void;
     onVoiceSettingsChange?: (settings: VideoAgentVoiceSettings) => void;
     selectedScene?: {
         endMs?: number;
@@ -30,9 +44,23 @@ export type ConfigPanelContext = {
         script: string;
         startMs?: number;
     };
+    selectedVoice?: VoiceSelection;
     subtitleSettings?: SubtitleSettings;
     voicePreviewStopSignal?: number;
+    voiceRegenerationProgress?: VoiceRegenerationProgress;
     voiceSettings?: VideoAgentVoiceSettings;
+};
+
+export type VoiceSelection = {
+    title: string;
+    voiceType?: string;
+};
+
+export type VoiceRegenerationProgress = {
+    current: number;
+    message?: string;
+    percent: number;
+    total: number;
 };
 
 export type ConfigTagPairData = {

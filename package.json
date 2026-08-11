@@ -3,6 +3,9 @@
     "private": true,
     "version": "1.0.0",
     "description": "智能剪辑平台",
+    "engines": {
+        "node": ">=22 <23"
+    },
     "scripts": {
         "start": "pnpm --filter @magicut/desktop start",
         "dev:desktop": "pnpm --filter @magicut/desktop start",

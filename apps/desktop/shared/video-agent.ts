@@ -102,6 +102,14 @@ export type DesktopAgentRunEvent =
           type: 'node.failed';
       })
     | (DesktopAgentRunEventBase & {
+          current: number;
+          message: string;
+          percent: number;
+          text: string;
+          total: number;
+          type: 'voice.regeneration.progress';
+      })
+    | (DesktopAgentRunEventBase & {
           delta: string;
           nodeName: string;
           type: 'model.delta';

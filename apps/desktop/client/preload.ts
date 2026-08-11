@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import type { VideoProject } from '@magicut/video-project';
 
+import type { CustomVoiceImportInput } from '../shared/custom-voice';
+import { customVoiceIpcChannels } from '../shared/custom-voice-channels';
 import type {
     DesktopAgentRunEvent,
     VideoAgentApprovalInput,
@@ -21,6 +23,16 @@ import { videoProjectIpcChannels } from '../shared/video-project-channels';
 
 contextBridge.exposeInMainWorld('magicutAPI', {
     ping: async () => ({ success: true }),
+    customVoice: {
+        checkIndexTts2: async () =>
+            ipcRenderer.invoke(customVoiceIpcChannels.checkIndexTts2),
+        importReferenceAudio: async (input?: CustomVoiceImportInput) =>
+            ipcRenderer.invoke(
+                customVoiceIpcChannels.importReferenceAudio,
+                input ?? {}
+            ),
+        list: async () => ipcRenderer.invoke(customVoiceIpcChannels.list)
+    },
     videoExport: {
         onProgress: (listener: (event: VideoExportProgressEvent) => void) => {
             const subscription = (

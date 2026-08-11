@@ -31,7 +31,7 @@ export type TtsSynthesisInput = {
 export type TtsSynthesisResult = {
     byteLength: number;
     durationMs: number;
-    format: 'mp3';
+    format: 'mp3' | 'wav';
     path: string;
 };
 

@@ -10,6 +10,12 @@ export type MediaAssetUrlInput = {
 
 export type ParsedMediaAssetUrl = MediaAssetUrlInput;
 
+export type CustomVoicePreviewUrlInput = {
+    voiceId: string;
+};
+
+export type ParsedCustomVoicePreviewUrl = CustomVoicePreviewUrlInput;
+
 export const createMediaAssetUrl = ({
     assetId,
     kind,
@@ -18,6 +24,13 @@ export const createMediaAssetUrl = ({
     `${mediaProtocolScheme}://project/${encodeURIComponent(
         projectId
     )}/${kind}/${encodeURIComponent(assetId)}`;
+
+export const createCustomVoicePreviewUrl = ({
+    voiceId
+}: CustomVoicePreviewUrlInput) =>
+    `${mediaProtocolScheme}://custom-voice/${encodeURIComponent(
+        voiceId
+    )}/reference`;
 
 export const parseMediaAssetUrl = (
     source: string
@@ -48,4 +61,28 @@ export const parseMediaAssetUrl = (
         kind,
         projectId
     };
+};
+
+export const parseCustomVoicePreviewUrl = (
+    source: string
+): ParsedCustomVoicePreviewUrl | undefined => {
+    let url: URL;
+
+    try {
+        url = new URL(source);
+    } catch {
+        return undefined;
+    }
+
+    if (url.protocol !== `${mediaProtocolScheme}:`) return undefined;
+    if (url.hostname !== 'custom-voice') return undefined;
+
+    const [voiceId, resource] = url.pathname
+        .split('/')
+        .filter(Boolean)
+        .map((part) => decodeURIComponent(part));
+
+    if (!voiceId || resource !== 'reference') return undefined;
+
+    return { voiceId };
 };

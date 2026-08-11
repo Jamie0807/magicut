@@ -52,6 +52,7 @@ const getEventLabel = (event: DesktopAgentRunEvent) => {
         return '等待人工确认';
     }
     if (event.type === 'model.delta') return '模型流式输出';
+    if (event.type === 'voice.regeneration.progress') return '正在生成口播';
     if (event.type === 'run.completed') return '已完成';
     if (event.type === 'run.failed') return '已失败';
     if (event.type === 'run.cancelled') return '已取消';
@@ -70,6 +71,7 @@ const getEventDetail = (event: DesktopAgentRunEvent) => {
     }
     if (event.type === 'node.failed') return event.error;
     if (event.type === 'model.delta') return event.delta;
+    if (event.type === 'voice.regeneration.progress') return event.message;
     if (event.type === 'run.failed') return event.error;
     if (event.type === 'run.cancelled') return event.reason;
     if (event.type === 'run.completed') return event.savedProjectPath;

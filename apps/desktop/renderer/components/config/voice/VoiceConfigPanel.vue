@@ -24,7 +24,15 @@ const props = defineProps<{
     context?: ConfigPanelContext;
 }>();
 
-const selectedVoiceTitle = shallowRef(voiceConfigPanel.presets[0]?.title ?? '');
+const createVoiceSelectionKey = (
+    card: Pick<VoicePresetCard, 'title' | 'voiceType'>
+) => card.voiceType || card.title;
+
+const localSelectedVoiceKey = shallowRef(
+    createVoiceSelectionKey(
+        voiceConfigPanel.presets[0] ?? { title: '', voiceType: '' }
+    )
+);
 const previewAudioRef = useTemplateRef<HTMLAudioElement>('previewAudioRef');
 
 const voiceSettings = computed(() =>
@@ -33,10 +41,28 @@ const voiceSettings = computed(() =>
     )
 );
 
+const customVoiceCards = computed<VoicePresetCard[]>(() =>
+    (props.context?.customVoices ?? []).map((voice) => ({
+        actionIcon: 'play',
+        description: '自定义',
+        previewAudioUrl: voice.previewAudioUrl ?? '',
+        selected: false,
+        title: voice.title,
+        voiceType: voice.voiceType
+    }))
+);
+
+const selectedVoiceKey = computed(
+    () =>
+        props.context?.selectedVoice?.voiceType ??
+        props.context?.selectedVoice?.title ??
+        localSelectedVoiceKey.value
+);
+
 const presets = computed(() =>
-    voiceConfigPanel.presets.map((preset) => ({
+    [...voiceConfigPanel.presets, ...customVoiceCards.value].map((preset) => ({
         ...preset,
-        selected: preset.title === selectedVoiceTitle.value
+        selected: createVoiceSelectionKey(preset) === selectedVoiceKey.value
     }))
 );
 
@@ -77,9 +103,33 @@ const sliders = computed<VoiceSlider[]>(() =>
 
 const actionLabel = computed(() =>
     props.context?.isRegeneratingVoices
-        ? '正在生成口播音轨'
+        ? '取消生成口播'
         : voiceConfigPanel.actionLabel
 );
+
+const customVoiceStatusLabel = computed(() => {
+    if (props.context?.isUploadingCustomVoice) {
+        return '正在导入原始音色音频';
+    }
+
+    if (props.context?.customVoiceStatus?.available) {
+        return '本地 IndexTTS2 已就绪，上传后可用于生成口播';
+    }
+
+    if (props.context?.customVoiceStatus) {
+        return '启动本地 IndexTTS2 后可上传自定义音色';
+    }
+
+    return '正在检测本地 IndexTTS2 服务';
+});
+
+const voiceRegenerationProgressLabel = computed(() => {
+    const progress = props.context?.voiceRegenerationProgress;
+
+    if (!progress) return '0%';
+
+    return `${progress.current}/${progress.total} · ${progress.percent}%`;
+});
 
 const stopPreviewAudio = () => {
     const audio = previewAudioRef.value;
@@ -91,14 +141,18 @@ const stopPreviewAudio = () => {
 };
 
 const handleSelect = (card: VoicePresetCard) => {
-    selectedVoiceTitle.value = card.title;
+    localSelectedVoiceKey.value = createVoiceSelectionKey(card);
+    props.context?.onVoiceSelectionChange?.({
+        title: card.title,
+        voiceType: card.voiceType
+    });
 };
 
 const handlePreview = async (card: VoicePresetCard) => {
-    selectedVoiceTitle.value = card.title;
+    handleSelect(card);
     const audio = previewAudioRef.value;
 
-    if (!audio) return;
+    if (!audio || !card.previewAudioUrl) return;
 
     if (audio.src !== card.previewAudioUrl) {
         audio.src = card.previewAudioUrl;
@@ -129,12 +183,23 @@ const handleSliderChange = (slider: VoiceSlider, value: number) => {
 };
 
 const handleRegenerateVoices = () => {
+    if (props.context?.isRegeneratingVoices) {
+        void props.context.onCancelRegenerateVoices?.();
+        return;
+    }
+
     const preset = selectedPreset.value;
+
+    if (!preset) return;
 
     props.context?.onRegenerateVoices?.({
         selectedVoice: preset.title,
         selectedVoiceType: selectedPresetVoiceType.value
     });
+};
+
+const handleImportCustomVoice = () => {
+    void props.context?.onImportCustomVoice?.();
 };
 
 watch(
@@ -195,7 +260,12 @@ onUnmounted(() => {
                         :src="selectedPreset.previewAudioUrl"
                     />
                     <div class="mt-[10px]">
-                        <ConfigUploadCard :card="voiceConfigPanel.uploadCard" />
+                        <ConfigUploadCard
+                            :card="voiceConfigPanel.uploadCard"
+                            :disabled="context?.isUploadingCustomVoice"
+                            :status-label="customVoiceStatusLabel"
+                            @click="handleImportCustomVoice"
+                        />
                     </div>
                 </ConfigSectionShell>
 
@@ -218,8 +288,27 @@ onUnmounted(() => {
         </div>
 
         <template #footer>
+            <div
+                v-if="context?.isRegeneratingVoices"
+                data-voice-regeneration-progress="true"
+                class="mb-2 grid gap-1.5"
+            >
+                <div
+                    class="flex items-center justify-between text-[11px] font-semibold text-[#B8C0CC]"
+                >
+                    <span>正在生成口播音轨</span>
+                    <span>{{ voiceRegenerationProgressLabel }}</span>
+                </div>
+                <div class="h-1.5 overflow-hidden rounded-full bg-[#252932]">
+                    <div
+                        class="h-full rounded-full bg-[#F05F73] transition-[width] duration-300 ease-out"
+                        :style="{
+                            width: `${context?.voiceRegenerationProgress?.percent ?? 0}%`
+                        }"
+                    />
+                </div>
+            </div>
             <ConfigPrimaryButton
-                :disabled="context?.isRegeneratingVoices"
                 :label="actionLabel"
                 icon="mic"
                 @click="handleRegenerateVoices"
