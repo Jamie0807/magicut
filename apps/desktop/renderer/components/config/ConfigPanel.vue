@@ -14,8 +14,11 @@ const props = withDefaults(
     defineProps<{
         conversation?: ConfigPanelContext['conversation'];
         isRegeneratingScene?: boolean;
+        isRegeneratingVoices?: boolean;
         mode?: ConfigMode;
         selectedScene?: ConfigPanelContext['selectedScene'];
+        voicePreviewStopSignal?: number;
+        voiceSettings?: ConfigPanelContext['voiceSettings'];
     }>(),
     {
         mode: editorConfigMode
@@ -29,6 +32,15 @@ const emit = defineEmits<{
             sceneId: string;
         }
     ];
+    regenerateVoices: [
+        input: {
+            selectedVoice: string;
+            selectedVoiceType?: string;
+        }
+    ];
+    voiceSettingsChange: [
+        settings: NonNullable<ConfigPanelContext['voiceSettings']>
+    ];
 }>();
 
 const panelStrategies = {
@@ -41,14 +53,21 @@ const panelStrategies = {
 const activePanel = computed(() => panelStrategies[props.mode]);
 
 const activePanelProps = computed(() =>
-    props.mode === 'visual'
+    props.mode === 'visual' || props.mode === 'voice'
         ? {
               context: {
                   conversation: props.conversation,
                   isRegeneratingScene: props.isRegeneratingScene,
+                  isRegeneratingVoices: props.isRegeneratingVoices,
                   onClearSelectedScene: () => emit('clearSelectedScene'),
                   onRegenerateScene: (input) => emit('regenerateScene', input),
-                  selectedScene: props.selectedScene
+                  onRegenerateVoices: (input) =>
+                      emit('regenerateVoices', input),
+                  onVoiceSettingsChange: (settings) =>
+                      emit('voiceSettingsChange', settings),
+                  selectedScene: props.selectedScene,
+                  voicePreviewStopSignal: props.voicePreviewStopSignal,
+                  voiceSettings: props.voiceSettings
               } satisfies ConfigPanelContext
           }
         : {}

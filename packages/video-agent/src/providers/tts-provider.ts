@@ -22,7 +22,9 @@ export type TtsProviderEvent =
 export type TtsSynthesisInput = {
     emit?: (event: TtsProviderEvent) => void;
     outputPath: string;
+    speedRatio?: number;
     text: string;
+    volumeRatio?: number;
     voice: string;
 };
 

@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import type { SliderTrackConfig } from '../../../types/config';
 
-defineProps<
-    Pick<
-        SliderTrackConfig,
-        'trackWidthClassName' | 'progressWidthClassName' | 'thumbLeftClassName'
-    >
->();
+withDefaults(
+    defineProps<
+        Pick<
+            SliderTrackConfig,
+            | 'progressWidthClassName'
+            | 'thumbLeftClassName'
+            | 'trackWidthClassName'
+        > & {
+            progressPercent?: number;
+            thumbPercent?: number;
+        }
+    >(),
+    {
+        progressPercent: undefined,
+        thumbPercent: undefined
+    }
+);
 </script>
 
 <template>
@@ -18,15 +29,28 @@ defineProps<
             <span
                 :class="[
                     'absolute top-[5px] h-[6px] rounded-full bg-white',
-                    progressWidthClassName
+                    progressPercent === undefined
+                        ? progressWidthClassName
+                        : undefined
                 ]"
+                :style="
+                    progressPercent === undefined
+                        ? undefined
+                        : { width: `${progressPercent}%` }
+                "
             />
             <span
                 :class="[
                     'absolute top-0 h-4 w-4 rounded-full border-[3px] border-[#0E0F12] bg-white',
-                    thumbLeftClassName
+                    thumbPercent === undefined ? thumbLeftClassName : undefined
                 ]"
+                :style="
+                    thumbPercent === undefined
+                        ? undefined
+                        : { left: `calc(${thumbPercent}% - 8px)` }
+                "
             />
+            <slot />
         </div>
     </div>
 </template>

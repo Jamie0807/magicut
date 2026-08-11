@@ -32,6 +32,8 @@ export type VideoCreationInput = {
     prompt: string;
     runId: string;
     sourceAssetDirectory: string;
+    voiceSpeed?: number;
+    voiceVolume?: number;
 };
 
 export type ProjectValidationResult =

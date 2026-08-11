@@ -1,5 +1,7 @@
 import type { AgentConversationMessage } from '@magicut/video-project';
 
+import type { VideoAgentVoiceSettings } from '../../shared/video-agent-voices';
+
 import type { EditorIconName } from './editor-screen';
 
 export type ConfigMode = 'visual' | 'voice' | 'subtitle' | 'music';
@@ -7,11 +9,17 @@ export type ConfigMode = 'visual' | 'voice' | 'subtitle' | 'music';
 export type ConfigPanelContext = {
     conversation?: AgentConversationMessage[];
     isRegeneratingScene?: boolean;
+    isRegeneratingVoices?: boolean;
     onClearSelectedScene?: () => void;
     onRegenerateScene?: (input: {
         prompt: string;
         sceneId: string;
     }) => Promise<void> | void;
+    onRegenerateVoices?: (input: {
+        selectedVoice: string;
+        selectedVoiceType?: string;
+    }) => Promise<void> | void;
+    onVoiceSettingsChange?: (settings: VideoAgentVoiceSettings) => void;
     selectedScene?: {
         endMs?: number;
         id: string;
@@ -19,6 +27,8 @@ export type ConfigPanelContext = {
         script: string;
         startMs?: number;
     };
+    voicePreviewStopSignal?: number;
+    voiceSettings?: VideoAgentVoiceSettings;
 };
 
 export type ConfigTagPairData = {
@@ -45,10 +55,16 @@ export type VoicePresetCard = {
     description: string;
     selected: boolean;
     actionIcon: Extract<EditorIconName, 'play'>;
+    previewAudioUrl: string;
+    voiceType: string;
 };
 
 export type SliderTrackConfig = {
     label: string;
+    max?: number;
+    min?: number;
+    numericValue?: number;
+    step?: number;
     value: string;
     trackWidthClassName: string;
     progressWidthClassName: string;

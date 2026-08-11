@@ -22,13 +22,16 @@ import type {
     VideoAgentCancelInput,
     VideoAgentOperationResult,
     VideoAgentRegenerateSceneInput,
+    VideoAgentRegenerateVoicesInput,
     VideoAgentResultData,
     VideoAgentStartInput
 } from '../shared/video-agent';
 import { videoAgentIpcChannels } from '../shared/video-agent-channels';
+import { normalizeVideoAgentVoiceSettings } from '../shared/video-agent-voices';
 
 import { regenerateVideoProjectScene } from './video-agent-scene-regeneration';
 import { createDesktopVideoAgentTools } from './video-agent-tools';
+import { regenerateVideoProjectVoices } from './video-agent-voice-regeneration';
 import type { VideoProjectStore } from './video-project-store';
 
 export { videoAgentIpcChannels };
@@ -70,6 +73,10 @@ export type VideoAgentIpcController = {
     ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
     regenerateScene: (
         input: VideoAgentRegenerateSceneInput,
+        emit: VideoAgentEventEmitter
+    ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
+    regenerateVoices: (
+        input: VideoAgentRegenerateVoicesInput,
         emit: VideoAgentEventEmitter
     ) => Promise<VideoAgentOperationResult<VideoAgentResultData>>;
     start: (
@@ -131,7 +138,8 @@ const normalizeStartInput = (input: VideoAgentStartInput) => ({
     prompt: input.prompt.trim(),
     selectedVoice: input.selectedVoice.trim(),
     selectedVoiceType: input.selectedVoiceType?.trim(),
-    sourceAssetDirectory: input.sourceAssetDirectory.trim()
+    sourceAssetDirectory: input.sourceAssetDirectory.trim(),
+    ...normalizeVideoAgentVoiceSettings(input)
 });
 
 const normalizeRegenerateSceneInput = (
@@ -142,7 +150,18 @@ const normalizeRegenerateSceneInput = (
     prompt: input.prompt.trim(),
     sceneId: input.sceneId.trim(),
     selectedVoice: input.selectedVoice.trim(),
-    selectedVoiceType: input.selectedVoiceType?.trim()
+    selectedVoiceType: input.selectedVoiceType?.trim(),
+    ...normalizeVideoAgentVoiceSettings(input)
+});
+
+const normalizeRegenerateVoicesInput = (
+    input: VideoAgentRegenerateVoicesInput
+) => ({
+    ...input,
+    projectId: input.projectId.trim(),
+    selectedVoice: input.selectedVoice.trim(),
+    selectedVoiceType: input.selectedVoiceType?.trim(),
+    ...normalizeVideoAgentVoiceSettings(input)
 });
 
 const findAgentEnvFilePath = () => {
@@ -203,7 +222,9 @@ const toDesktopGraphEvent = ({
             input: {
                 ...event.input,
                 selectedVoice: state.input.selectedVoice,
-                selectedVoiceType: state.input.selectedVoiceType
+                selectedVoiceType: state.input.selectedVoiceType,
+                voiceSpeed: state.input.voiceSpeed,
+                voiceVolume: state.input.voiceVolume
             }
         };
     }
@@ -347,7 +368,9 @@ export const createDemoVideoAgentController = ({
                     prompt: input.prompt,
                     selectedVoice: input.selectedVoice,
                     selectedVoiceType: input.selectedVoiceType,
-                    sourceAssetDirectory: input.projectId
+                    sourceAssetDirectory: input.projectId,
+                    voiceSpeed: input.voiceSpeed,
+                    voiceVolume: input.voiceVolume
                 },
                 runId: `regen_${randomUUID()}`,
                 sequence: 0
@@ -366,6 +389,61 @@ export const createDemoVideoAgentController = ({
                     {
                         nodeName,
                         type: 'node.started'
+                    },
+                    emit
+                );
+            }
+
+            emitForRun(
+                state,
+                {
+                    projectId: input.projectId,
+                    type: 'run.completed'
+                },
+                emit
+            );
+
+            return success({
+                projectId: input.projectId,
+                runId: state.runId
+            });
+        },
+        regenerateVoices: async (rawInput, emit) => {
+            const input = normalizeRegenerateVoicesInput(rawInput);
+            const state: DemoVideoAgentRunState = {
+                input: {
+                    prompt: input.projectId,
+                    selectedVoice: input.selectedVoice,
+                    selectedVoiceType: input.selectedVoiceType,
+                    sourceAssetDirectory: input.projectId,
+                    voiceSpeed: input.voiceSpeed,
+                    voiceVolume: input.voiceVolume
+                },
+                runId: `voice_regen_${randomUUID()}`,
+                sequence: 0
+            };
+
+            if (!input.projectId || !input.selectedVoice) {
+                return failure({
+                    code: 'VALIDATION_FAILED',
+                    message: '请选择项目和音色'
+                });
+            }
+
+            for (const nodeName of ['voice_regeneration', 'project_save']) {
+                emitForRun(
+                    state,
+                    {
+                        nodeName,
+                        type: 'node.started'
+                    },
+                    emit
+                );
+                emitForRun(
+                    state,
+                    {
+                        nodeName,
+                        type: 'node.completed'
                     },
                     emit
                 );
@@ -416,7 +494,9 @@ export const createDemoVideoAgentController = ({
                         prompt: input.prompt,
                         selectedVoice: input.selectedVoice,
                         selectedVoiceType: input.selectedVoiceType,
-                        sourceAssetDirectory: input.sourceAssetDirectory
+                        sourceAssetDirectory: input.sourceAssetDirectory,
+                        voiceSpeed: input.voiceSpeed,
+                        voiceVolume: input.voiceVolume
                     },
                     type: 'run.started'
                 },
@@ -683,6 +763,39 @@ export const createLangGraphVideoAgentController = ({
                 });
             }
         },
+        regenerateVoices: async (rawInput, emit) => {
+            const input = normalizeRegenerateVoicesInput(rawInput);
+
+            if (!input.projectId || !input.selectedVoice) {
+                return failure({
+                    code: 'VALIDATION_FAILED',
+                    message: '请选择项目和音色'
+                });
+            }
+
+            try {
+                const providers = getProviders();
+                const result = await regenerateVideoProjectVoices({
+                    createRunId,
+                    emit,
+                    input,
+                    now,
+                    store,
+                    ttsProvider: providers.ttsProvider,
+                    voiceOutputDirectory
+                });
+
+                return success({
+                    projectId: result.project.project.id,
+                    runId: result.runId
+                });
+            } catch (error) {
+                return failure({
+                    code: 'RUN_FAILED',
+                    message: serializeError(error)
+                });
+            }
+        },
         start: async (rawInput, emit) => {
             const input = normalizeStartInput(rawInput);
 
@@ -712,7 +825,9 @@ export const createLangGraphVideoAgentController = ({
                 const result = await getRunner().start({
                     prompt: input.prompt,
                     runId,
-                    sourceAssetDirectory: input.sourceAssetDirectory
+                    sourceAssetDirectory: input.sourceAssetDirectory,
+                    voiceSpeed: input.voiceSpeed,
+                    voiceVolume: input.voiceVolume
                 });
 
                 return graphResultToOperationResult(result);
@@ -749,6 +864,12 @@ export const registerVideoAgentIpc = ({
     ipcMain.handle(videoAgentIpcChannels.regenerateScene, (event, input) =>
         controller.regenerateScene(
             input as VideoAgentRegenerateSceneInput,
+            emitToRenderer(event)
+        )
+    );
+    ipcMain.handle(videoAgentIpcChannels.regenerateVoices, (event, input) =>
+        controller.regenerateVoices(
+            input as VideoAgentRegenerateVoicesInput,
             emitToRenderer(event)
         )
     );

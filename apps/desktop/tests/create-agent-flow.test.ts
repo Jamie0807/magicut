@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import path, { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { sampleVideoProject, type VideoProject } from '@magicut/video-project';
+
 describe('create agent flow', () => {
     it('creates spoken fallback scripts instead of storyboard planning labels', async () => {
         const { createDesktopVideoAgentTools } = await import(
@@ -1098,5 +1100,179 @@ describe('create agent flow', () => {
             '已开始智能创作',
             '已取消'
         ]);
+    });
+
+    it('regenerates every voice clip without changing scripts or matched assets', async () => {
+        const projectsDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-projects-')
+        );
+
+        try {
+            const { createVideoProjectStore } = await import(
+                '../client/video-project-store'
+            );
+            const { createLangGraphVideoAgentController } = await import(
+                '../client/video-agent-ipc'
+            );
+            const store = createVideoProjectStore({ projectsDirectory });
+            const project: VideoProject = structuredClone(sampleVideoProject);
+            const saved = await store.createProject({ project });
+
+            if (saved.success === false) {
+                throw new Error(saved.error.message);
+            }
+
+            const ttsCalls: {
+                text: string;
+                voice: string;
+            }[] = [];
+            const controller = createLangGraphVideoAgentController({
+                createRunId: () => 'voice_regen_test',
+                modelProvider: {
+                    describeFrames: async () => [] as never[],
+                    embedTexts: async () => [] as never[],
+                    generateCreativeBrief: async () => {
+                        throw new Error('model should not be called');
+                    },
+                    planScenes: async () => {
+                        throw new Error('model should not be called');
+                    },
+                    rankAssetMatches: async () => {
+                        throw new Error('model should not be called');
+                    }
+                },
+                now: () => '2026-06-23T10:00:00.000Z',
+                store,
+                ttsProvider: {
+                    synthesizeSpeech: async ({ outputPath, text, voice }) => {
+                        ttsCalls.push({ text, voice });
+                        await writeFile(outputPath, new Uint8Array([7, 8, 9]));
+
+                        return {
+                            byteLength: 3,
+                            durationMs: 6000,
+                            format: 'mp3' as const,
+                            path: outputPath
+                        };
+                    }
+                },
+                voiceOutputDirectory: path.join(projectsDirectory, 'voices')
+            });
+            const events: unknown[] = [];
+            const result = await controller.regenerateVoices(
+                {
+                    projectId: 'project_sample_001',
+                    selectedVoice: '活力讲解',
+                    selectedVoiceType: 'zh_male_huolixiaoge_uranus_bigtts',
+                    voiceSpeed: 1.5,
+                    voiceVolume: 0.42
+                },
+                (event) => events.push(event)
+            );
+
+            if (result.success === false) {
+                throw new Error(result.error.message);
+            }
+
+            const loaded = await store.readProjectById({
+                projectId: 'project_sample_001'
+            });
+
+            if (loaded.success === false) {
+                throw new Error(loaded.error.message);
+            }
+
+            const nextProject = loaded.data;
+            const videoTrack = nextProject.tracks.find(
+                (track) => track.kind === 'video'
+            );
+            const voiceTrack = nextProject.tracks.find(
+                (track) => track.kind === 'voice'
+            );
+            const subtitleTrack = nextProject.tracks.find(
+                (track) => track.kind === 'subtitle'
+            );
+            const musicTrack = nextProject.tracks.find(
+                (track) => track.kind === 'music'
+            );
+
+            expect(result).toMatchObject({
+                data: {
+                    projectId: 'project_sample_001',
+                    runId: 'voice_regen_test'
+                },
+                success: true
+            });
+            expect(ttsCalls).toEqual([
+                {
+                    text: '开场提出问题，把学习焦虑拉到观众面前。',
+                    voice: 'zh_male_huolixiaoge_uranus_bigtts'
+                }
+            ]);
+            expect(nextProject.assets.voices).toEqual([
+                expect.objectContaining({
+                    durationMs: 6000,
+                    id: 'voice_asset_scene_001_voice_regen_voice_regen_test_001',
+                    voice: 'zh_male_huolixiaoge_uranus_bigtts'
+                })
+            ]);
+            expect(nextProject.scenes[0]).toMatchObject({
+                durationMs: 4000,
+                matchedVideoAssetIds: ['video_asset_001'],
+                script: project.scenes[0]?.script,
+                voiceAssetId:
+                    'voice_asset_scene_001_voice_regen_voice_regen_test_001'
+            });
+            expect(voiceTrack?.clips).toMatchObject([
+                {
+                    assetId:
+                        'voice_asset_scene_001_voice_regen_voice_regen_test_001',
+                    endMs: 4000,
+                    kind: 'voice',
+                    sceneId: 'scene_001',
+                    speed: 1.5,
+                    startMs: 0,
+                    volume: 0.42,
+                    voicePreset: '活力讲解'
+                }
+            ]);
+            expect(subtitleTrack?.clips).toMatchObject([
+                {
+                    endMs: 4000,
+                    kind: 'subtitle',
+                    sceneId: 'scene_001',
+                    startMs: 0,
+                    text: '开场提出问题，把学习焦虑拉到观众面前。'
+                }
+            ]);
+            expect(videoTrack?.clips[0]).toMatchObject({
+                assetId: 'video_asset_001',
+                endMs: 4000,
+                sceneId: 'scene_001',
+                sourceEndMs: 6000,
+                speed: 1.5,
+                startMs: 0
+            });
+            expect(musicTrack?.clips[0]).toMatchObject({
+                endMs: 4000,
+                sourceEndMs: 4000,
+                startMs: 0
+            });
+            expect(nextProject.canvas.durationMs).toBe(4000);
+            expect(events).toContainEqual(
+                expect.objectContaining({
+                    nodeName: 'voice_regeneration',
+                    type: 'node.started'
+                })
+            );
+            expect(events).toContainEqual(
+                expect.objectContaining({
+                    projectId: 'project_sample_001',
+                    type: 'run.completed'
+                })
+            );
+        } finally {
+            await rm(projectsDirectory, { force: true, recursive: true });
+        }
     });
 });

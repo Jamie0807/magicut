@@ -1,5 +1,16 @@
 <script setup lang="ts">
+import { computed, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue';
+
+import {
+    defaultVideoAgentVoiceSettings,
+    normalizeVideoAgentVoiceSettings
+} from '../../../../shared/video-agent-voices';
 import { voiceConfigPanel } from '../../../constants/config';
+import type {
+    ConfigPanelContext,
+    VoicePresetCard,
+    VoiceSlider
+} from '../../../types/config';
 
 import ConfigHeader from '../shared/ConfigHeader.vue';
 import ConfigPanelShell from '../shared/ConfigPanelShell.vue';
@@ -8,6 +19,143 @@ import ConfigSectionShell from '../shared/ConfigSectionShell.vue';
 import ConfigSelectableCard from '../shared/ConfigSelectableCard.vue';
 import ConfigSliderRow from '../shared/ConfigSliderRow.vue';
 import ConfigUploadCard from '../shared/ConfigUploadCard.vue';
+
+const props = defineProps<{
+    context?: ConfigPanelContext;
+}>();
+
+const selectedVoiceTitle = shallowRef(voiceConfigPanel.presets[0]?.title ?? '');
+const previewAudioRef = useTemplateRef<HTMLAudioElement>('previewAudioRef');
+
+const voiceSettings = computed(() =>
+    normalizeVideoAgentVoiceSettings(
+        props.context?.voiceSettings ?? defaultVideoAgentVoiceSettings
+    )
+);
+
+const presets = computed(() =>
+    voiceConfigPanel.presets.map((preset) => ({
+        ...preset,
+        selected: preset.title === selectedVoiceTitle.value
+    }))
+);
+
+const selectedPreset = computed(
+    () =>
+        presets.value.find((preset) => preset.selected) ??
+        voiceConfigPanel.presets[0]
+);
+const readSelectedPresetVoiceType = (selectedPreset: VoicePresetCard) =>
+    selectedPreset.voiceType;
+const selectedPresetVoiceType = computed(() =>
+    readSelectedPresetVoiceType(selectedPreset.value)
+);
+
+const sliders = computed<VoiceSlider[]>(() =>
+    voiceConfigPanel.sliders.map((slider) => {
+        if (slider.label === '音量') {
+            const value = Math.round(voiceSettings.value.voiceVolume * 100);
+
+            return {
+                ...slider,
+                numericValue: value,
+                value: `${value}%`
+            };
+        }
+
+        if (slider.label === '语速') {
+            return {
+                ...slider,
+                numericValue: voiceSettings.value.voiceSpeed,
+                value: `${voiceSettings.value.voiceSpeed.toFixed(2)}x`
+            };
+        }
+
+        return slider;
+    })
+);
+
+const actionLabel = computed(() =>
+    props.context?.isRegeneratingVoices
+        ? '正在生成口播音轨'
+        : voiceConfigPanel.actionLabel
+);
+
+const stopPreviewAudio = () => {
+    const audio = previewAudioRef.value;
+
+    if (!audio) return;
+
+    audio.pause();
+    audio.currentTime = 0;
+};
+
+const handleSelect = (card: VoicePresetCard) => {
+    selectedVoiceTitle.value = card.title;
+};
+
+const handlePreview = async (card: VoicePresetCard) => {
+    selectedVoiceTitle.value = card.title;
+    const audio = previewAudioRef.value;
+
+    if (!audio) return;
+
+    if (audio.src !== card.previewAudioUrl) {
+        audio.src = card.previewAudioUrl;
+    }
+
+    audio.volume = voiceSettings.value.voiceVolume;
+    audio.playbackRate = voiceSettings.value.voiceSpeed;
+    audio.currentTime = 0;
+
+    await audio.play().catch((): void => undefined);
+};
+
+const handleSliderChange = (slider: VoiceSlider, value: number) => {
+    if (slider.label === '音量') {
+        props.context?.onVoiceSettingsChange?.({
+            ...voiceSettings.value,
+            voiceVolume: value / 100
+        });
+        return;
+    }
+
+    if (slider.label === '语速') {
+        props.context?.onVoiceSettingsChange?.({
+            ...voiceSettings.value,
+            voiceSpeed: value
+        });
+    }
+};
+
+const handleRegenerateVoices = () => {
+    const preset = selectedPreset.value;
+
+    props.context?.onRegenerateVoices?.({
+        selectedVoice: preset.title,
+        selectedVoiceType: selectedPresetVoiceType.value
+    });
+};
+
+watch(
+    () => (props.context ? props.context.voicePreviewStopSignal : undefined),
+    () => {
+        stopPreviewAudio();
+    }
+);
+
+watch(voiceSettings, (settings) => {
+    const audio = previewAudioRef.value;
+
+    if (!audio) return;
+
+    audio.volume = settings.voiceVolume;
+    audio.playbackRate = settings.voiceSpeed;
+});
+
+onUnmounted(() => {
+    stopPreviewAudio();
+});
 </script>
 
 <template>
@@ -34,11 +182,18 @@ import ConfigUploadCard from '../shared/ConfigUploadCard.vue';
                     />
                     <div class="mt-[13px] grid grid-cols-2 gap-2">
                         <ConfigSelectableCard
-                            v-for="card in voiceConfigPanel.presets"
+                            v-for="card in presets"
                             :key="card.title"
                             :card="card"
+                            @preview="handlePreview"
+                            @select="handleSelect"
                         />
                     </div>
+                    <audio
+                        ref="previewAudioRef"
+                        data-voice-preview-audio="true"
+                        :src="selectedPreset.previewAudioUrl"
+                    />
                     <div class="mt-[10px]">
                         <ConfigUploadCard :card="voiceConfigPanel.uploadCard" />
                     </div>
@@ -52,9 +207,10 @@ import ConfigUploadCard from '../shared/ConfigUploadCard.vue';
                     />
                     <div class="mt-[18px] grid gap-4">
                         <ConfigSliderRow
-                            v-for="slider in voiceConfigPanel.sliders"
+                            v-for="slider in sliders"
                             :key="slider.label"
                             :slider="slider"
+                            @value-change="handleSliderChange(slider, $event)"
                         />
                     </div>
                 </ConfigSectionShell>
@@ -63,8 +219,10 @@ import ConfigUploadCard from '../shared/ConfigUploadCard.vue';
 
         <template #footer>
             <ConfigPrimaryButton
-                :label="voiceConfigPanel.actionLabel"
+                :disabled="context?.isRegeneratingVoices"
+                :label="actionLabel"
                 icon="mic"
+                @click="handleRegenerateVoices"
             />
         </template>
     </ConfigPanelShell>

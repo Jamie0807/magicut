@@ -1,3 +1,7 @@
+import {
+    defaultVideoAgentVoiceSettings,
+    videoAgentVoiceOptions
+} from '../../shared/video-agent-voices';
 import type {
     ConfigMode,
     MusicConfigData,
@@ -24,6 +28,35 @@ export const visualConfigPanel = {
     }
 } satisfies VisualConfigData;
 
+const voicePreviewAudioUrls = Object.fromEntries(
+    videoAgentVoiceOptions.map((option) => [
+        option.label,
+        new URL(
+            `../assets/voice-previews/${option.previewAudioFileName}`,
+            import.meta.url
+        ).href
+    ])
+) as Record<(typeof videoAgentVoiceOptions)[number]['label'], string>;
+
+const createVoicePreset = ({
+    description,
+    label,
+    selected,
+    voiceType
+}: {
+    description: string;
+    label: (typeof videoAgentVoiceOptions)[number]['label'];
+    selected: boolean;
+    voiceType: string;
+}) => ({
+    title: label,
+    description,
+    selected,
+    actionIcon: 'play' as const,
+    previewAudioUrl: voicePreviewAudioUrls[label],
+    voiceType
+});
+
 export const voiceConfigPanel = {
     header: {
         title: '口播配音',
@@ -34,30 +67,30 @@ export const voiceConfigPanel = {
         subtitle: '系统音色与自定义音色库 · 支持试听'
     },
     presets: [
-        {
-            title: '温婉学姐',
+        createVoicePreset({
             description: '自然女声 · 推荐',
+            label: '温婉学姐',
             selected: true,
-            actionIcon: 'play'
-        },
-        {
-            title: '沉稳男声',
+            voiceType: 'zh_female_wenroushunv_uranus_bigtts'
+        }),
+        createVoicePreset({
             description: '低频清晰',
+            label: '沉稳男声',
             selected: false,
-            actionIcon: 'play'
-        },
-        {
-            title: '新闻播报',
+            voiceType: 'zh_male_gaolengchenwen_uranus_bigtts'
+        }),
+        createVoicePreset({
             description: '稳重正式',
+            label: '新闻播报',
             selected: false,
-            actionIcon: 'play'
-        },
-        {
-            title: '活力讲解',
+            voiceType: 'zh_male_cixingjieshuonan_uranus_bigtts'
+        }),
+        createVoicePreset({
             description: '节奏明快',
+            label: '活力讲解',
             selected: false,
-            actionIcon: 'play'
-        }
+            voiceType: 'zh_male_huolixiaoge_uranus_bigtts'
+        })
     ],
     uploadCard: {
         title: '自定义音色库',
@@ -69,6 +102,12 @@ export const voiceConfigPanel = {
             label: '音量',
             value: '82%',
             icon: 'volume-2',
+            max: 100,
+            min: 0,
+            numericValue: Math.round(
+                defaultVideoAgentVoiceSettings.voiceVolume * 100
+            ),
+            step: 1,
             trackWidthClassName: 'w-[250px]',
             progressWidthClassName: 'w-[186px]',
             thumbLeftClassName: 'left-[178px]'
@@ -77,6 +116,10 @@ export const voiceConfigPanel = {
             label: '语速',
             value: '1.05x',
             icon: 'gauge',
+            max: 2,
+            min: 0.5,
+            numericValue: defaultVideoAgentVoiceSettings.voiceSpeed,
+            step: 0.05,
             trackWidthClassName: 'w-[250px]',
             progressWidthClassName: 'w-[154px]',
             thumbLeftClassName: 'left-[146px]'

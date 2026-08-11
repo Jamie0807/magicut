@@ -26,6 +26,7 @@ const props = withDefaults(
         currentTimeMs?: number;
         data?: PreviewData;
         isPlaying?: boolean;
+        previewVolume?: number;
     }>(),
     {
         currentTimeMs: 0,
@@ -35,7 +36,8 @@ const props = withDefaults(
             source: previewImageUrl,
             type: 'image'
         }),
-        isPlaying: false
+        isPlaying: false,
+        previewVolume: 0.82
     }
 );
 
@@ -139,6 +141,15 @@ const activeVoiceCue = computed(() =>
         segment: activeSegment.value
     })
 );
+const activeVideoPlaybackRate = computed(
+    () => activeSegment.value?.playbackRate ?? 1
+);
+const activeVoicePlaybackRate = computed(
+    () => activeVoiceCue.value?.playbackRate ?? 1
+);
+const activeVoiceVolume = computed(
+    () => activeVoiceCue.value?.volume ?? props.previewVolume
+);
 const mediaSource = computed(() =>
     props.data.type === 'video'
         ? (activeSegment.value?.source ?? props.data.source)
@@ -151,6 +162,11 @@ const posterSource = computed(() =>
 );
 const voiceSource = computed(
     () => activeVoiceCue.value?.source ?? activeSegment.value?.voiceSource
+);
+const voicePlaybackKey = computed(() =>
+    voiceSource.value
+        ? `${voiceSource.value}:${activeVoiceCue.value?.id ?? 'segment'}:${activeVoicePlaybackRate.value}`
+        : undefined
 );
 const localTimeMs = computed(() =>
     getPreviewSegmentLocalTimeMs({
@@ -177,22 +193,46 @@ const timecode = computed(() =>
 );
 
 const handleVideoLoadedMetadata = (event: Event) => {
+    const element = event.currentTarget as HTMLMediaElement;
+
+    element.playbackRate = activeVideoPlaybackRate.value;
     syncMediaCurrentTime({
-        element: event.currentTarget as HTMLMediaElement,
+        element,
         timeMs: localTimeMs.value
     });
 };
 
 const handleAudioLoadedMetadata = (event: Event) => {
+    const element = event.currentTarget as HTMLMediaElement;
+
+    element.playbackRate = activeVoicePlaybackRate.value;
+    element.volume = activeVoiceVolume.value;
     syncMediaCurrentTime({
-        element: event.currentTarget as HTMLMediaElement,
+        element,
         timeMs: voiceLocalTimeMs.value
     });
 };
 
 watch(
-    [localTimeMs, mediaSource, voiceLocalTimeMs, voiceSource],
+    [
+        activeVideoPlaybackRate,
+        activeVoicePlaybackRate,
+        activeVoiceVolume,
+        localTimeMs,
+        mediaSource,
+        voiceLocalTimeMs,
+        voiceSource
+    ],
     () => {
+        if (videoRef.value) {
+            videoRef.value.playbackRate = activeVideoPlaybackRate.value;
+        }
+
+        if (audioRef.value) {
+            audioRef.value.playbackRate = activeVoicePlaybackRate.value;
+            audioRef.value.volume = activeVoiceVolume.value;
+        }
+
         syncMediaCurrentTime({
             element: videoRef.value,
             timeMs: localTimeMs.value
@@ -256,6 +296,7 @@ watch(
                     ref="videoRef"
                     :key="mediaSource"
                     data-preview-source="project-video"
+                    :data-preview-video-playback-rate="activeVideoPlaybackRate"
                     :src="mediaSource"
                     :poster="posterSource"
                     :aria-label="activeSegment?.alt ?? data.alt"
@@ -268,7 +309,10 @@ watch(
                 <audio
                     v-if="voiceSource"
                     ref="audioRef"
-                    :key="voiceSource"
+                    :key="voicePlaybackKey"
+                    :data-preview-voice-key="voicePlaybackKey"
+                    :data-preview-voice-playback-rate="activeVoicePlaybackRate"
+                    :data-preview-voice-volume="activeVoiceVolume"
                     :src="voiceSource"
                     preload="metadata"
                     @loadedmetadata="handleAudioLoadedMetadata"

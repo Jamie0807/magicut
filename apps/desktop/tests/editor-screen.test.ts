@@ -211,6 +211,87 @@ describe('EditorScreen', () => {
         expect(editorConfigMode).toBe('voice');
     });
 
+    it('renders playable voice previews and adjustable voice parameters', async () => {
+        const html = await renderComponent(ConfigPanel, { mode: 'voice' });
+
+        for (const label of ['温婉学姐', '沉稳男声', '新闻播报', '活力讲解']) {
+            expect(html).toContain(`aria-label="试听${label}"`);
+            expect(html).toContain(`data-voice-preview="${label}"`);
+        }
+
+        expect(html).toContain('data-voice-preview-audio="true"');
+        expect(html).toContain('/voice-previews/');
+        expect(html).toContain('type="range"');
+        expect(html).toContain('aria-label="音量"');
+        expect(html).toContain('aria-label="语速"');
+        expect(html).toContain('value="82"');
+        expect(html).toContain('value="1.05"');
+    });
+
+    it('wires the voice generation button to regenerate all narration clips', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const configPanelSource = readFileSync(
+            resolve(__dirname, '../renderer/components/config/ConfigPanel.vue'),
+            'utf8'
+        );
+        const voicePanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/voice/VoiceConfigPanel.vue'
+            ),
+            'utf8'
+        );
+        const primaryButtonSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/shared/ConfigPrimaryButton.vue'
+            ),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('handleRegenerateVoices');
+        expect(editorSource).toContain(
+            'window.magicutAPI.videoAgent.regenerateVoices'
+        );
+        expect(editorSource).toContain(
+            '@regenerate-voices="handleRegenerateVoices"'
+        );
+        expect(configPanelSource).toContain('regenerateVoices');
+        expect(voicePanelSource).toContain('onRegenerateVoices');
+        expect(voicePanelSource).toContain('selectedPreset.voiceType');
+        expect(primaryButtonSource).toContain('disabled');
+        expect(primaryButtonSource).toContain('@click');
+    });
+
+    it('stops the voice preset preview when editor preview playback starts', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const configPanelSource = readFileSync(
+            resolve(__dirname, '../renderer/components/config/ConfigPanel.vue'),
+            'utf8'
+        );
+        const voicePanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/voice/VoiceConfigPanel.vue'
+            ),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('voicePreviewStopSignal');
+        expect(editorSource).toContain('voicePreviewStopSignal.value += 1');
+        expect(configPanelSource).toContain('voicePreviewStopSignal');
+        expect(voicePanelSource).toContain(
+            'props.context.voicePreviewStopSignal'
+        );
+        expect(voicePanelSource).toContain('audio.pause()');
+    });
+
     it('links the editor logo back to the workspace', async () => {
         const html = await renderEditorScreen();
 

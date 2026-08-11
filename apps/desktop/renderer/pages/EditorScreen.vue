@@ -9,6 +9,7 @@ import ModeRail from '../components/editor/ModeRail.vue';
 import PreviewPanel from '../components/editor/PreviewPanel.vue';
 import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
+import { defaultVideoAgentVoiceSettings } from '../../shared/video-agent-voices';
 import { editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
 import {
@@ -21,7 +22,7 @@ import {
     createPlaybackStoryboard,
     createTimelinePlayhead
 } from '../mappers/video-project-to-editor';
-import type { ConfigMode } from '../types/config';
+import type { ConfigMode, ConfigPanelContext } from '../types/config';
 import type { StoryboardItem, TimelineData } from '../types/editor-screen';
 import {
     advancePlaybackTime,
@@ -42,8 +43,11 @@ const hoverPreviewTimeMs = shallowRef<number | undefined>();
 const isPreviewPlaying = shallowRef(false);
 const isQuickAdjustmentSceneLinked = shallowRef(true);
 const isRegeneratingScene = shallowRef(false);
+const isRegeneratingVoices = shallowRef(false);
 const selectedSceneId = shallowRef<string | undefined>();
 const titleSaveStatus = shallowRef(editorHeader.status);
+const voicePreviewStopSignal = shallowRef(0);
+const voiceSettings = shallowRef({ ...defaultVideoAgentVoiceSettings });
 const editorData = computed(() => createEditorScreenData(currentProject.value));
 const canHoverPreviewTimeline = computed(() => !isPreviewPlaying.value);
 const previewTimeMs = computed(() =>
@@ -219,7 +223,9 @@ const handleRegenerateScene = async ({
             prompt,
             sceneId,
             selectedVoice: voiceOption.selectedVoice,
-            selectedVoiceType: voiceOption.selectedVoiceType
+            selectedVoiceType: voiceOption.selectedVoiceType,
+            voiceSpeed: voiceSettings.value.voiceSpeed,
+            voiceVolume: voiceSettings.value.voiceVolume
         });
 
         if (result.success === false) {
@@ -247,6 +253,62 @@ const handleRegenerateScene = async ({
     }
 };
 
+const handleVoiceSettingsChange: NonNullable<
+    ConfigPanelContext['onVoiceSettingsChange']
+> = (settings) => {
+    voiceSettings.value = settings;
+};
+
+const handleRegenerateVoices: NonNullable<
+    ConfigPanelContext['onRegenerateVoices']
+> = async ({ selectedVoice, selectedVoiceType }) => {
+    const project = currentProject.value;
+
+    if (!project) return;
+
+    if (typeof window === 'undefined' || !window.magicutAPI?.videoAgent) {
+        titleSaveStatus.value = '口播音轨生成失败';
+        return;
+    }
+
+    isRegeneratingVoices.value = true;
+    titleSaveStatus.value = '正在生成口播音轨';
+
+    try {
+        const result = await window.magicutAPI.videoAgent.regenerateVoices({
+            projectId: project.project.id,
+            selectedVoice,
+            selectedVoiceType,
+            voiceSpeed: voiceSettings.value.voiceSpeed,
+            voiceVolume: voiceSettings.value.voiceVolume
+        });
+
+        if (result.success === false) {
+            titleSaveStatus.value = '口播音轨生成失败';
+            return;
+        }
+
+        const loaded = await window.magicutAPI.videoProject.readById(
+            project.project.id
+        );
+
+        if (loaded.success === false) {
+            titleSaveStatus.value = '口播音轨已生成，重新加载失败';
+            return;
+        }
+
+        currentProject.value = loaded.data;
+        committedTimeMs.value = 0;
+        hoverPreviewTimeMs.value = undefined;
+        isPreviewPlaying.value = false;
+        titleSaveStatus.value = '刚刚更新 · 已自动保存';
+    } catch {
+        titleSaveStatus.value = '口播音轨生成失败';
+    } finally {
+        isRegeneratingVoices.value = false;
+    }
+};
+
 const clearHoverPreviewTime = () => {
     hoverPreviewTimeMs.value = undefined;
 };
@@ -265,7 +327,13 @@ const clearTimelineHoverTime = () => {
 
 const togglePlayback = () => {
     hoverPreviewTimeMs.value = undefined;
-    isPreviewPlaying.value = !isPreviewPlaying.value;
+    const nextIsPlaying = !isPreviewPlaying.value;
+
+    if (nextIsPlaying) {
+        voicePreviewStopSignal.value += 1;
+    }
+
+    isPreviewPlaying.value = nextIsPlaying;
 };
 
 watch(
@@ -277,8 +345,10 @@ watch(
         isPreviewPlaying.value = false;
         isQuickAdjustmentSceneLinked.value = true;
         isRegeneratingScene.value = false;
+        isRegeneratingVoices.value = false;
         selectedSceneId.value = undefined;
         titleSaveStatus.value = editorHeader.status;
+        voicePreviewStopSignal.value += 1;
     }
 );
 
@@ -336,15 +406,21 @@ watch(
                     :current-time-ms="previewTimeMs"
                     :data="editorData.preview"
                     :is-playing="isPreviewPlaying"
+                    :preview-volume="voiceSettings.voiceVolume"
                     @toggle-playback="togglePlayback"
                 />
                 <ConfigPanel
                     :conversation="currentProject?.ai.conversation"
                     :is-regenerating-scene="isRegeneratingScene"
+                    :is-regenerating-voices="isRegeneratingVoices"
                     :mode="activeMode"
                     :selected-scene="selectedScene"
+                    :voice-preview-stop-signal="voicePreviewStopSignal"
+                    :voice-settings="voiceSettings"
                     @clear-selected-scene="isQuickAdjustmentSceneLinked = false"
                     @regenerate-scene="handleRegenerateScene"
+                    @regenerate-voices="handleRegenerateVoices"
+                    @voice-settings-change="handleVoiceSettingsChange"
                 />
                 <ModeRail
                     :active-mode="activeMode"

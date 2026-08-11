@@ -28,6 +28,13 @@ interface Window {
                     import('./shared/video-agent').VideoAgentResultData
                 >
             >;
+            regenerateVoices: (
+                input: import('./shared/video-agent').VideoAgentRegenerateVoicesInput
+            ) => Promise<
+                import('./shared/video-agent').VideoAgentOperationResult<
+                    import('./shared/video-agent').VideoAgentResultData
+                >
+            >;
             start: (
                 input: import('./shared/video-agent').VideoAgentStartInput
             ) => Promise<

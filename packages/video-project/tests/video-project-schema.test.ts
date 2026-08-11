@@ -125,4 +125,28 @@ describe('VideoProject schema', () => {
         ).not.toThrow();
         expect(validateVideoProject(project).success).toBe(true);
     });
+
+    it('accepts persisted playback speed and voice volume on timeline clips', () => {
+        const project: VideoProject = structuredClone(sampleVideoProject);
+        const videoClip = project.tracks
+            .find((track) => track.kind === 'video')
+            ?.clips.find((clip) => clip.kind === 'video');
+        const voiceClip = project.tracks
+            .find((track) => track.kind === 'voice')
+            ?.clips.find((clip) => clip.kind === 'voice');
+
+        if (!videoClip || videoClip.kind !== 'video') {
+            throw new Error('sample fixture must include a video clip');
+        }
+
+        if (!voiceClip || voiceClip.kind !== 'voice') {
+            throw new Error('sample fixture must include a voice clip');
+        }
+
+        videoClip.speed = 1.5;
+        voiceClip.speed = 1.5;
+        voiceClip.volume = 0.42;
+
+        expect(validateVideoProject(project).success).toBe(true);
+    });
 });

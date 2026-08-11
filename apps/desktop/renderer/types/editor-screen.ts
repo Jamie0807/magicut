@@ -138,8 +138,10 @@ export type PreviewSubtitleCue = {
 export type PreviewVoiceCue = {
     endMs: number;
     id: string;
+    playbackRate?: number;
     source: string;
     startMs: number;
+    volume?: number;
 };
 
 export type PreviewSegment = {
@@ -147,6 +149,7 @@ export type PreviewSegment = {
     endMs: number;
     id: string;
     posterSource?: string;
+    playbackRate?: number;
     source: string;
     sourceEndMs: number;
     sourceStartMs: number;

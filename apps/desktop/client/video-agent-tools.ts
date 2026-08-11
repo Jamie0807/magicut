@@ -17,7 +17,10 @@ import {
     type VideoProject
 } from '@magicut/video-project';
 
-import { defaultVideoAgentVoice } from '../shared/video-agent-voices';
+import {
+    defaultVideoAgentVoice,
+    normalizeVideoAgentVoiceSettings
+} from '../shared/video-agent-voices';
 
 import type { VideoProjectStore } from './video-project-store';
 
@@ -353,6 +356,7 @@ export const createDesktopVideoAgentTools = ({
         }) => {
             const safeRunId = createSafeId(input.runId);
             const createdAt = now();
+            const voiceSettings = normalizeVideoAgentVoiceSettings(input);
             const assetById = new Map(
                 assets.map((asset) => [asset.assetId, asset])
             );
@@ -441,6 +445,7 @@ export const createDesktopVideoAgentTools = ({
                         Math.min(sourceDurationMs, durationMs)
                     ),
                     sourceStartMs: 0,
+                    speed: voiceSettings.voiceSpeed,
                     startMs,
                     transform: {
                         rotation: 0,
@@ -459,7 +464,9 @@ export const createDesktopVideoAgentTools = ({
                     )}`,
                     kind: 'voice' as const,
                     sceneId: scene.id,
+                    speed: voiceSettings.voiceSpeed,
                     startMs: segment.startMs,
+                    volume: voiceSettings.voiceVolume,
                     voicePreset: getSelectedVoice?.(input.runId) ?? '温婉学姐'
                 }))
             );

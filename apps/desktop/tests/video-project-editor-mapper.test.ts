@@ -347,7 +347,9 @@ describe('videoProjectToEditor', () => {
                 id: 'voice_clip_01_01',
                 kind: 'voice',
                 sceneId: 'scene_01',
+                speed: 1.25,
                 startMs: 0,
+                volume: 0.72,
                 voicePreset: 'zh_female_gaolengyujie_uranus_bigtts'
             },
             {
@@ -371,8 +373,10 @@ describe('videoProjectToEditor', () => {
             {
                 endMs: 3000,
                 id: 'voice_clip_01_01',
+                playbackRate: 1.25,
                 source: 'magicut-media://project/project_9_scenes/voice/voice_asset_01_01',
-                startMs: 0
+                startMs: 0,
+                volume: 0.72
             },
             {
                 endMs: 8000,

@@ -128,6 +128,36 @@ describe('VolcengineTtsProvider', () => {
         );
     });
 
+    it('requests mp3 encoding from the provider protocol', async () => {
+        const outputDir = await mkdtemp(join(tmpdir(), 'magicut-tts-'));
+        const { provider, socket } = createProvider({
+            incoming: [
+                createTtsMessageFrame({
+                    event: EventType.TtsResponse,
+                    msgType: MsgType.AudioOnlyServer,
+                    payload: new Uint8Array([1, 2]),
+                    sessionId: 'session-encoding'
+                }),
+                createTtsMessageFrame({
+                    event: EventType.SessionFinished,
+                    msgType: MsgType.FullServerResponse,
+                    payload: new Uint8Array(),
+                    sessionId: 'session-encoding'
+                })
+            ]
+        });
+
+        await provider.synthesizeSpeech({
+            outputPath: join(outputDir, 'voice.mp3'),
+            text: 'Magicut',
+            voice: 'zh_female_wenroushunv_uranus_bigtts'
+        });
+
+        const requestText = new TextDecoder().decode(socket.sent[0]);
+
+        expect(requestText).toContain('"encoding":"mp3"');
+    });
+
     it('turns protocol errors into redacted provider errors', async () => {
         const outputDir = await mkdtemp(join(tmpdir(), 'magicut-tts-'));
         const { provider } = createProvider({

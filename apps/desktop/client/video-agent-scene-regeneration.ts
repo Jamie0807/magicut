@@ -24,7 +24,10 @@ import type {
     DesktopAgentRunEvent,
     VideoAgentRegenerateSceneInput
 } from '../shared/video-agent';
-import { defaultVideoAgentVoice } from '../shared/video-agent-voices';
+import {
+    defaultVideoAgentVoice,
+    normalizeVideoAgentVoiceSettings
+} from '../shared/video-agent-voices';
 
 import type { VideoAgentEventEmitter } from './video-agent-ipc';
 import type { VideoProjectStore } from './video-project-store';
@@ -264,10 +267,12 @@ const synthesizeSceneVoices = async ({
 const createTimedVoiceSegments = ({
     scene,
     sceneStartMs,
+    voiceSpeed,
     voices
 }: {
     scene: PlannedScene;
     sceneStartMs: number;
+    voiceSpeed: number;
     voices: VoiceSynthesisResult[];
 }) => {
     let cursorMs = sceneStartMs;
@@ -288,7 +293,8 @@ const createTimedVoiceSegments = ({
         }
 
         const startMs = cursorMs;
-        const endMs = startMs + Math.max(1, voice.durationMs);
+        const endMs =
+            startMs + Math.max(1, Math.round(voice.durationMs / voiceSpeed));
 
         cursorMs = endMs;
 
@@ -333,7 +339,8 @@ const rebuildVideoClips = ({
     previousSceneTimings,
     project,
     scene,
-    selectedVideoAsset
+    selectedVideoAsset,
+    voiceSpeed
 }: {
     matchedVideoAssetId: string;
     nextSceneTimings: Map<string, SceneTiming>;
@@ -342,6 +349,7 @@ const rebuildVideoClips = ({
     project: VideoProject;
     scene: PlannedScene;
     selectedVideoAsset: VideoProject['assets']['videos'][number];
+    voiceSpeed: number;
 }): VideoClip[] => {
     const videoTrack = getTrack(project.tracks, 'video');
     const previousVideoClips = (videoTrack?.clips ?? []).filter(isVideoClip);
@@ -400,9 +408,12 @@ const rebuildVideoClips = ({
                 sourceStartMs +
                 Math.min(
                     sourceDurationMs,
-                    nextTiming.endMs - nextTiming.startMs
+                    Math.round(
+                        (nextTiming.endMs - nextTiming.startMs) * voiceSpeed
+                    )
                 ),
             sourceStartMs,
+            speed: voiceSpeed,
             startMs: nextTiming.startMs,
             transform: previousClip?.transform ?? fallbackTransform
         };
@@ -428,6 +439,7 @@ const rebuildVoiceClips = ({
 }): VoiceClip[] => {
     const voiceTrack = getTrack(project.tracks, 'voice');
     const previousVoiceClips = (voiceTrack?.clips ?? []).filter(isVoiceClip);
+    const voiceSettings = normalizeVideoAgentVoiceSettings(input);
 
     return nextScenes.flatMap((item) => {
         const nextTiming = nextSceneTimings.get(item.id);
@@ -445,7 +457,9 @@ const rebuildVoiceClips = ({
                 )}`,
                 kind: 'voice' as const,
                 sceneId: scene.id,
+                speed: voiceSettings.voiceSpeed,
                 startMs: segment.startMs,
+                volume: voiceSettings.voiceVolume,
                 voicePreset: input.selectedVoice
             }));
         }
@@ -547,6 +561,8 @@ const rebuildTracks = ({
     totalDurationMs: number;
 }): TimelineTrack[] =>
     project.tracks.map((track) => {
+        const voiceSettings = normalizeVideoAgentVoiceSettings(input);
+
         if (track.kind === 'video') {
             return {
                 ...track,
@@ -557,7 +573,8 @@ const rebuildTracks = ({
                     previousSceneTimings,
                     project,
                     scene,
-                    selectedVideoAsset
+                    selectedVideoAsset,
+                    voiceSpeed: voiceSettings.voiceSpeed
                 })
             };
         }
@@ -902,6 +919,7 @@ export const regenerateVideoProjectScene = async ({
     const segments = createTimedVoiceSegments({
         scene: plannedScene,
         sceneStartMs: sourceSceneStartMs,
+        voiceSpeed: normalizeVideoAgentVoiceSettings(input).voiceSpeed,
         voices
     });
     const nextDurationMs =

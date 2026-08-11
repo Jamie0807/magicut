@@ -501,12 +501,14 @@ const createPreview = (project: VideoProject): PreviewData => {
         const voiceCues = matchingVoiceClips.map((voiceClip) => ({
             endMs: voiceClip.endMs,
             id: voiceClip.id,
+            playbackRate: voiceClip.speed,
             source: createMediaAssetUrl({
                 assetId: voiceClip.assetId,
                 kind: 'voice',
                 projectId
             }),
-            startMs: voiceClip.startMs
+            startMs: voiceClip.startMs,
+            volume: voiceClip.volume
         }));
         const subtitleCues = subtitleClips
             .filter((subtitleClip) => {
@@ -530,6 +532,7 @@ const createPreview = (project: VideoProject): PreviewData => {
                 alt: `${scene?.title ?? project.project.title} 画面`,
                 endMs: clip.endMs,
                 id: clip.id,
+                playbackRate: clip.speed,
                 posterSource: matchingThumbnail
                     ? createMediaAssetUrl({
                           assetId: matchingThumbnail.id,

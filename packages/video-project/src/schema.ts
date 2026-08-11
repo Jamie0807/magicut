@@ -38,6 +38,7 @@ export const VideoClipSchema = clipBaseSchema.extend({
     assetId: idSchema,
     crop: cropSchema,
     kind: z.literal('video'),
+    speed: z.number().positive().optional(),
     sourceEndMs: timeMsSchema,
     sourceStartMs: timeMsSchema,
     transform: transformSchema
@@ -46,6 +47,8 @@ export const VideoClipSchema = clipBaseSchema.extend({
 export const VoiceClipSchema = clipBaseSchema.extend({
     assetId: idSchema,
     kind: z.literal('voice'),
+    speed: z.number().positive().optional(),
+    volume: z.number().min(0).max(1).optional(),
     voicePreset: idSchema
 });
 

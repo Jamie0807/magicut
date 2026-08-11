@@ -193,7 +193,9 @@ export class VolcengineTtsProvider implements TtsProvider {
     async synthesizeSpeech({
         emit,
         outputPath,
+        speedRatio,
         text,
+        volumeRatio,
         voice
     }: TtsSynthesisInput): Promise<TtsSynthesisResult> {
         const socket = await this.connect({
@@ -217,8 +219,11 @@ export class VolcengineTtsProvider implements TtsProvider {
                     JSON.stringify({
                         req_params: {
                             audio_params: {
+                                encoding: this.format,
                                 format: this.format,
-                                sample_rate: this.sampleRate
+                                sample_rate: this.sampleRate,
+                                speed_ratio: speedRatio,
+                                volume_ratio: volumeRatio
                             },
                             speaker: voice,
                             text

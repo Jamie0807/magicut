@@ -16,6 +16,8 @@ export type VideoAgentStartInput = {
     selectedVoice: string;
     selectedVoiceType?: string;
     sourceAssetDirectory: string;
+    voiceSpeed?: number;
+    voiceVolume?: number;
 };
 
 export type VideoAgentApprovalInput = {
@@ -33,6 +35,16 @@ export type VideoAgentRegenerateSceneInput = {
     sceneId: string;
     selectedVoice: string;
     selectedVoiceType?: string;
+    voiceSpeed?: number;
+    voiceVolume?: number;
+};
+
+export type VideoAgentRegenerateVoicesInput = {
+    projectId: string;
+    selectedVoice: string;
+    selectedVoiceType?: string;
+    voiceSpeed?: number;
+    voiceVolume?: number;
 };
 
 export type VideoAgentResultData = {
@@ -71,6 +83,8 @@ export type DesktopAgentRunEvent =
               selectedVoice: string;
               selectedVoiceType?: string;
               sourceAssetDirectory: string;
+              voiceSpeed?: number;
+              voiceVolume?: number;
           };
           type: 'run.started';
       })
