@@ -141,9 +141,99 @@ describe('EditorScreen', () => {
         expect(html).toContain(
             'src="magicut-media://project/project_real/voice/voice_asset_001"'
         );
+        expect(html).toContain('data-preview-subtitle-layer="true"');
+        expect(html).toContain(
+            'absolute inset-x-0 bottom-[50px] flex justify-center'
+        );
         expect(html).toContain('data-preview-subtitle="true"');
+        expect(html).toContain('inline-block max-w-[80%]');
+        expect(html).toContain('text-[24px]');
+        expect(html).toContain('font-size:24px');
         expect(html).toContain('真实字幕');
+        expect(html).not.toContain('left-1/2 max-w-[86%]');
         expect(html).toContain('aria-label="暂停预览"');
+    });
+
+    it('renders preview subtitles with the configured font size and preset colors', async () => {
+        const html = await renderComponent(PreviewPanel, {
+            data: {
+                alt: '字幕样式预览',
+                durationMs: 4000,
+                segments: [
+                    {
+                        alt: '单分镜',
+                        endMs: 4000,
+                        id: 'segment_subtitle_style',
+                        source: 'magicut-media://project/project_preview/video/video_subtitle_style',
+                        sourceEndMs: 4000,
+                        sourceStartMs: 0,
+                        startMs: 0,
+                        subtitleCues: [
+                            {
+                                endMs: 4000,
+                                id: 'subtitle_style_01',
+                                startMs: 0,
+                                style: {
+                                    fontSizePx: 32,
+                                    outlineColor: '#050505',
+                                    presetLabel: '黄字黑边',
+                                    textColor: '#FFD400'
+                                },
+                                text: '样式后的字幕'
+                            }
+                        ]
+                    }
+                ],
+                source: 'magicut-media://project/project_preview/video/video_subtitle_style',
+                type: 'video'
+            }
+        });
+
+        expect(html).toContain('样式后的字幕');
+        expect(html).toContain('font-size:32px');
+        expect(html).toContain('color:#FFD400');
+        expect(html).toContain('-webkit-text-stroke:2px #050505');
+        expect(html).toContain('data-preview-subtitle-preset="黄字黑边"');
+    });
+
+    it('keeps small preview subtitle text readable with a lighter outline', async () => {
+        const html = await renderComponent(PreviewPanel, {
+            data: {
+                alt: '小字号字幕样式预览',
+                durationMs: 4000,
+                segments: [
+                    {
+                        alt: '单分镜',
+                        endMs: 4000,
+                        id: 'segment_small_subtitle_style',
+                        source: 'magicut-media://project/project_preview/video/video_small_subtitle_style',
+                        sourceEndMs: 4000,
+                        sourceStartMs: 0,
+                        startMs: 0,
+                        subtitleCues: [
+                            {
+                                endMs: 4000,
+                                id: 'subtitle_small_style_01',
+                                startMs: 0,
+                                style: {
+                                    fontSizePx: 12,
+                                    outlineColor: '#050505',
+                                    presetLabel: '黄字黑边',
+                                    textColor: '#FFD400'
+                                },
+                                text: '小字号字幕'
+                            }
+                        ]
+                    }
+                ],
+                source: 'magicut-media://project/project_preview/video/video_small_subtitle_style',
+                type: 'video'
+            }
+        });
+
+        expect(html).toContain('font-size:12px');
+        expect(html).toContain('-webkit-text-stroke:1px #050505');
+        expect(html).not.toContain('-webkit-text-stroke:2px #050505');
     });
 
     it('wires preview playback into storyboard and timeline state', () => {
@@ -570,6 +660,56 @@ describe('EditorScreen', () => {
         expect(presetCount).toBe(7);
         expect(activePresetCount).toBe(1);
         expect(inactivePresetCount).toBe(6);
+    });
+
+    it('wires subtitle setting controls to the editor preview state', () => {
+        const editorSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
+            'utf8'
+        );
+        const configPanelSource = readFileSync(
+            resolve(__dirname, '../renderer/components/config/ConfigPanel.vue'),
+            'utf8'
+        );
+        const subtitlePanelSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/config/subtitle/SubtitleConfigPanel.vue'
+            ),
+            'utf8'
+        );
+
+        expect(editorSource).toContain('subtitleSettings');
+        expect(editorSource).toContain(
+            '@subtitle-settings-change="handleSubtitleSettingsChange"'
+        );
+        expect(configPanelSource).toContain('onSubtitleSettingsChange');
+        expect(configPanelSource).toContain('subtitleSettings');
+        expect(subtitlePanelSource).toContain('@value-change');
+        expect(subtitlePanelSource).toContain('@toggle');
+        expect(subtitlePanelSource).toContain('@click');
+    });
+
+    it('moves the subtitle preset highlight with the selected style', async () => {
+        const html = await renderComponent(ConfigPanel, {
+            mode: 'subtitle',
+            subtitleSettings: {
+                fontSizePx: 18,
+                isVisible: true,
+                outlineColor: '#050505',
+                presetLabel: '黄字黑边',
+                textColor: '#FFD400'
+            }
+        });
+
+        expect(html).toContain('data-subtitle-preset="黄字黑边"');
+        expect(html).toContain(
+            'aria-pressed="true" data-testid="subtitle-preset" data-active="true" data-subtitle-preset="黄字黑边"'
+        );
+        expect(html).toContain('border-color:#F05F73');
+        expect(html).toContain(
+            'aria-pressed="false" data-testid="subtitle-preset" data-active="false" data-subtitle-preset="白字黑边"'
+        );
     });
 
     it('positions subtitle preset glyph layers', async () => {

@@ -1,4 +1,4 @@
-import type { ConfigMode } from './config';
+import type { ConfigMode, SubtitlePreviewStyle } from './config';
 
 export type { ConfigMode } from './config';
 
@@ -132,6 +132,7 @@ export type PreviewSubtitleCue = {
     endMs: number;
     id: string;
     startMs: number;
+    style?: SubtitlePreviewStyle;
     text: string;
 };
 

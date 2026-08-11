@@ -17,6 +17,7 @@ const props = withDefaults(
         isRegeneratingVoices?: boolean;
         mode?: ConfigMode;
         selectedScene?: ConfigPanelContext['selectedScene'];
+        subtitleSettings?: ConfigPanelContext['subtitleSettings'];
         voicePreviewStopSignal?: number;
         voiceSettings?: ConfigPanelContext['voiceSettings'];
     }>(),
@@ -38,6 +39,9 @@ const emit = defineEmits<{
             selectedVoiceType?: string;
         }
     ];
+    subtitleSettingsChange: [
+        settings: NonNullable<ConfigPanelContext['subtitleSettings']>
+    ];
     voiceSettingsChange: [
         settings: NonNullable<ConfigPanelContext['voiceSettings']>
     ];
@@ -53,7 +57,9 @@ const panelStrategies = {
 const activePanel = computed(() => panelStrategies[props.mode]);
 
 const activePanelProps = computed(() =>
-    props.mode === 'visual' || props.mode === 'voice'
+    props.mode === 'visual' ||
+    props.mode === 'voice' ||
+    props.mode === 'subtitle'
         ? {
               context: {
                   conversation: props.conversation,
@@ -63,9 +69,12 @@ const activePanelProps = computed(() =>
                   onRegenerateScene: (input) => emit('regenerateScene', input),
                   onRegenerateVoices: (input) =>
                       emit('regenerateVoices', input),
+                  onSubtitleSettingsChange: (settings) =>
+                      emit('subtitleSettingsChange', settings),
                   onVoiceSettingsChange: (settings) =>
                       emit('voiceSettingsChange', settings),
                   selectedScene: props.selectedScene,
+                  subtitleSettings: props.subtitleSettings,
                   voicePreviewStopSignal: props.voicePreviewStopSignal,
                   voiceSettings: props.voiceSettings
               } satisfies ConfigPanelContext

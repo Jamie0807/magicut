@@ -10,7 +10,7 @@ import PreviewPanel from '../components/editor/PreviewPanel.vue';
 import ScriptPanel from '../components/editor/ScriptPanel.vue';
 import TimelinePanel from '../components/editor/TimelinePanel.vue';
 import { defaultVideoAgentVoiceSettings } from '../../shared/video-agent-voices';
-import { editorConfigMode } from '../constants/config';
+import { defaultSubtitleSettings, editorConfigMode } from '../constants/config';
 import { editorHeader } from '../constants/editor-screen';
 import {
     applySceneRegenerationStreamEvent,
@@ -22,7 +22,11 @@ import {
     createPlaybackStoryboard,
     createTimelinePlayhead
 } from '../mappers/video-project-to-editor';
-import type { ConfigMode, ConfigPanelContext } from '../types/config';
+import type {
+    ConfigMode,
+    ConfigPanelContext,
+    SubtitleSettings
+} from '../types/config';
 import type { StoryboardItem, TimelineData } from '../types/editor-screen';
 import {
     advancePlaybackTime,
@@ -46,9 +50,16 @@ const isRegeneratingScene = shallowRef(false);
 const isRegeneratingVoices = shallowRef(false);
 const selectedSceneId = shallowRef<string | undefined>();
 const titleSaveStatus = shallowRef(editorHeader.status);
+const subtitleSettings = shallowRef<SubtitleSettings>({
+    ...defaultSubtitleSettings
+});
 const voicePreviewStopSignal = shallowRef(0);
 const voiceSettings = shallowRef({ ...defaultVideoAgentVoiceSettings });
-const editorData = computed(() => createEditorScreenData(currentProject.value));
+const editorData = computed(() =>
+    createEditorScreenData(currentProject.value, {
+        subtitleSettings: subtitleSettings.value
+    })
+);
 const canHoverPreviewTimeline = computed(() => !isPreviewPlaying.value);
 const previewTimeMs = computed(() =>
     canHoverPreviewTimeline.value
@@ -259,6 +270,12 @@ const handleVoiceSettingsChange: NonNullable<
     voiceSettings.value = settings;
 };
 
+const handleSubtitleSettingsChange: NonNullable<
+    ConfigPanelContext['onSubtitleSettingsChange']
+> = (settings) => {
+    subtitleSettings.value = settings;
+};
+
 const handleRegenerateVoices: NonNullable<
     ConfigPanelContext['onRegenerateVoices']
 > = async ({ selectedVoice, selectedVoiceType }) => {
@@ -347,6 +364,7 @@ watch(
         isRegeneratingScene.value = false;
         isRegeneratingVoices.value = false;
         selectedSceneId.value = undefined;
+        subtitleSettings.value = { ...defaultSubtitleSettings };
         titleSaveStatus.value = editorHeader.status;
         voicePreviewStopSignal.value += 1;
     }
@@ -415,11 +433,13 @@ watch(
                     :is-regenerating-voices="isRegeneratingVoices"
                     :mode="activeMode"
                     :selected-scene="selectedScene"
+                    :subtitle-settings="subtitleSettings"
                     :voice-preview-stop-signal="voicePreviewStopSignal"
                     :voice-settings="voiceSettings"
                     @clear-selected-scene="isQuickAdjustmentSceneLinked = false"
                     @regenerate-scene="handleRegenerateScene"
                     @regenerate-voices="handleRegenerateVoices"
+                    @subtitle-settings-change="handleSubtitleSettingsChange"
                     @voice-settings-change="handleVoiceSettingsChange"
                 />
                 <ModeRail

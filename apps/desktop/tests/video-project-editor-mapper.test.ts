@@ -254,6 +254,9 @@ describe('videoProjectToEditor', () => {
             subtitleCues: [
                 expect.objectContaining({
                     startMs: 0,
+                    style: expect.objectContaining({
+                        fontSizePx: 24
+                    }),
                     text: '字幕 01-01'
                 }),
                 expect.objectContaining({
@@ -286,6 +289,50 @@ describe('videoProjectToEditor', () => {
             '01:10',
             '01:20'
         ]);
+    });
+
+    it('applies subtitle preview settings to mapped subtitle cues', () => {
+        const data = createEditorScreenData(createNineSceneProject(), {
+            subtitleSettings: {
+                fontSizePx: 32,
+                isVisible: true,
+                outlineColor: '#050505',
+                presetLabel: '黄字黑边',
+                textColor: '#FFD400'
+            }
+        });
+
+        if (data.preview.type !== 'video') {
+            throw new Error('Expected video preview');
+        }
+
+        expect(data.preview.segments[0]?.subtitleCues[0]).toMatchObject({
+            style: {
+                fontSizePx: 32,
+                outlineColor: '#050505',
+                presetLabel: '黄字黑边',
+                textColor: '#FFD400'
+            },
+            text: '字幕 01-01'
+        });
+    });
+
+    it('hides subtitle cues when subtitle preview is disabled', () => {
+        const data = createEditorScreenData(createNineSceneProject(), {
+            subtitleSettings: {
+                fontSizePx: 18,
+                isVisible: false,
+                outlineColor: '#000000',
+                presetLabel: '白字黑边',
+                textColor: '#F5F7FA'
+            }
+        });
+
+        if (data.preview.type !== 'video') {
+            throw new Error('Expected video preview');
+        }
+
+        expect(data.preview.segments[0]?.subtitleCues).toEqual([]);
     });
 
     it('renders mapped timeline clips through the existing timeline component', async () => {

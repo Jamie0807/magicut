@@ -10,6 +10,7 @@ import type {
 } from '@magicut/video-project';
 
 import { createMediaAssetUrl } from '../../shared/media-protocol';
+import { defaultSubtitleSettings } from '../constants/config';
 import {
     storyboardItems,
     storyboardSummary,
@@ -19,6 +20,7 @@ import {
     timelineTicks,
     timelineTracks
 } from '../constants/editor-screen';
+import type { SubtitleSettings } from '../types/config';
 import type {
     EditorScreenData,
     PreviewData,
@@ -61,6 +63,10 @@ const defaultPreviewData: PreviewData = {
     durationMs: 90_000,
     source: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
     type: 'image'
+};
+
+type EditorScreenDataOptions = {
+    subtitleSettings?: SubtitleSettings;
 };
 
 const sortProjectClips = <Clip extends ProjectTimelineClip>(clips: Clip[]) =>
@@ -453,7 +459,10 @@ const createTimeline = (project: VideoProject): TimelineData => {
     };
 };
 
-const createPreview = (project: VideoProject): PreviewData => {
+const createPreview = (
+    project: VideoProject,
+    { subtitleSettings = defaultSubtitleSettings }: EditorScreenDataOptions = {}
+): PreviewData => {
     const videoTrack = getTrack(project.tracks, 'video');
     const voiceTrack = getTrack(project.tracks, 'voice');
     const subtitleTrack = getTrack(project.tracks, 'subtitle');
@@ -510,22 +519,25 @@ const createPreview = (project: VideoProject): PreviewData => {
             startMs: voiceClip.startMs,
             volume: voiceClip.volume
         }));
-        const subtitleCues = subtitleClips
-            .filter((subtitleClip) => {
-                if (clip.sceneId && subtitleClip.sceneId) {
-                    return clip.sceneId === subtitleClip.sceneId;
-                }
+        const subtitleCues = subtitleSettings.isVisible
+            ? subtitleClips
+                  .filter((subtitleClip) => {
+                      if (clip.sceneId && subtitleClip.sceneId) {
+                          return clip.sceneId === subtitleClip.sceneId;
+                      }
 
-                return clipsOverlap(clip, subtitleClip);
-            })
-            .map((subtitleClip) => ({
-                endMs: subtitleClip.endMs,
-                id: subtitleClip.id,
-                startMs: subtitleClip.startMs,
-                text:
-                    subtitlesById.get(subtitleClip.subtitleId)?.text ??
-                    subtitleClip.text
-            }));
+                      return clipsOverlap(clip, subtitleClip);
+                  })
+                  .map((subtitleClip) => ({
+                      endMs: subtitleClip.endMs,
+                      id: subtitleClip.id,
+                      startMs: subtitleClip.startMs,
+                      style: subtitleSettings,
+                      text:
+                          subtitlesById.get(subtitleClip.subtitleId)?.text ??
+                          subtitleClip.text
+                  }))
+            : [];
 
         return [
             {
@@ -574,15 +586,17 @@ const createPreview = (project: VideoProject): PreviewData => {
 };
 
 export const videoProjectToEditor = (
-    project: VideoProject
+    project: VideoProject,
+    options?: EditorScreenDataOptions
 ): EditorScreenData => ({
-    preview: createPreview(project),
+    preview: createPreview(project, options),
     storyboard: createStoryboard(project),
     timeline: createTimeline(project)
 });
 
 export const createEditorScreenData = (
-    project?: VideoProject
+    project?: VideoProject,
+    options?: EditorScreenDataOptions
 ): EditorScreenData => {
     if (!project) {
         return {
@@ -592,5 +606,5 @@ export const createEditorScreenData = (
         };
     }
 
-    return videoProjectToEditor(project);
+    return videoProjectToEditor(project, options);
 };

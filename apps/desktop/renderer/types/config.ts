@@ -19,6 +19,7 @@ export type ConfigPanelContext = {
         selectedVoice: string;
         selectedVoiceType?: string;
     }) => Promise<void> | void;
+    onSubtitleSettingsChange?: (settings: SubtitleSettings) => void;
     onVoiceSettingsChange?: (settings: VideoAgentVoiceSettings) => void;
     selectedScene?: {
         endMs?: number;
@@ -27,6 +28,7 @@ export type ConfigPanelContext = {
         script: string;
         startMs?: number;
     };
+    subtitleSettings?: SubtitleSettings;
     voicePreviewStopSignal?: number;
     voiceSettings?: VideoAgentVoiceSettings;
 };
@@ -106,6 +108,16 @@ export type SubtitlePreset = {
     outerTextColor: string;
     innerTextColor: string;
 };
+
+export type SubtitleSettings = {
+    fontSizePx: number;
+    isVisible: boolean;
+    outlineColor: string;
+    presetLabel: string;
+    textColor: string;
+};
+
+export type SubtitlePreviewStyle = Omit<SubtitleSettings, 'isVisible'>;
 
 export type SubtitleConfigData = {
     header: {

@@ -6,6 +6,7 @@ import type {
     ConfigMode,
     MusicConfigData,
     SubtitleConfigData,
+    SubtitleSettings,
     VisualConfigData,
     VoiceConfigData
 } from '../types/config';
@@ -128,6 +129,14 @@ export const voiceConfigPanel = {
     actionLabel: '生成口播音轨'
 } satisfies VoiceConfigData;
 
+export const defaultSubtitleSettings = {
+    fontSizePx: 24,
+    isVisible: true,
+    outlineColor: '#000000',
+    presetLabel: '白字黑边',
+    textColor: '#F5F7FA'
+} as const satisfies SubtitleSettings;
+
 export const subtitleConfigPanel = {
     header: {
         title: '字幕设置',
@@ -139,10 +148,14 @@ export const subtitleConfigPanel = {
     },
     size: {
         label: '字号',
+        max: 72,
+        min: 12,
+        numericValue: 42,
+        step: 1,
         value: '42 px',
         trackWidthClassName: 'w-[260px]',
-        progressWidthClassName: 'w-[92px]',
-        thumbLeftClassName: 'left-[80px]'
+        progressWidthClassName: 'w-[130px]',
+        thumbLeftClassName: 'left-[122px]'
     },
     style: {
         title: '字幕样式',

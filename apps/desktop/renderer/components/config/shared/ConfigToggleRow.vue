@@ -3,6 +3,9 @@ defineProps<{
     label: string;
     enabled: boolean;
 }>();
+const emit = defineEmits<{
+    toggle: [];
+}>();
 </script>
 
 <template>
@@ -18,6 +21,7 @@ defineProps<{
                 'relative h-[28px] w-[48px] rounded-full transition-all duration-200',
                 enabled ? 'bg-[#F05F73]' : 'bg-[#30343C]'
             ]"
+            @click="emit('toggle')"
         >
             <span
                 :class="[

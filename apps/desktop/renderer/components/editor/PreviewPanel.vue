@@ -2,6 +2,7 @@
 import { computed, useTemplateRef, watch } from 'vue';
 
 import previewImageUrl from '../../assets/editor-preview.png';
+import { defaultSubtitleSettings } from '../../constants/config';
 import { previewPanel } from '../../constants/editor-screen';
 import type {
     EditorIconName,
@@ -121,6 +122,25 @@ const syncMediaCurrentTime = ({
     }
 };
 
+const createPreviewSubtitleStyle = (style?: PreviewSubtitleCue['style']) => {
+    const previewStyle = style ?? defaultSubtitleSettings;
+    const outlineWidthPx =
+        previewStyle.fontSizePx <= 18
+            ? 1
+            : previewStyle.fontSizePx <= 28
+              ? 1.5
+              : 2;
+
+    return {
+        '-webkit-text-stroke': `${outlineWidthPx}px ${previewStyle.outlineColor}`,
+        color: previewStyle.textColor,
+        fontSize: `${previewStyle.fontSizePx}px`,
+        textShadow: `0 ${outlineWidthPx}px ${
+            outlineWidthPx * 2
+        }px ${previewStyle.outlineColor}, 0 0 10px rgba(0, 0, 0, 0.45)`
+    };
+};
+
 const activeSegment = computed(() =>
     props.data.type === 'video'
         ? findActivePreviewSegment({
@@ -134,6 +154,14 @@ const activeSubtitle = computed(() =>
         currentTimeMs: props.currentTimeMs,
         segment: activeSegment.value
     })
+);
+const activeSubtitleStyle = computed(() =>
+    createPreviewSubtitleStyle(activeSubtitle.value?.style)
+);
+const activeSubtitlePreset = computed(
+    () =>
+        activeSubtitle.value?.style?.presetLabel ??
+        defaultSubtitleSettings.presetLabel
 );
 const activeVoiceCue = computed(() =>
     findActiveVoiceCue({
@@ -317,13 +345,20 @@ watch(
                     preload="metadata"
                     @loadedmetadata="handleAudioLoadedMetadata"
                 />
-                <p
+                <div
                     v-if="activeSubtitle"
-                    data-preview-subtitle="true"
-                    class="absolute bottom-[50px] left-1/2 max-w-[86%] -translate-x-1/2 rounded bg-black/45 px-3 py-1 text-center text-[18px] leading-[1.45] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                    data-preview-subtitle-layer="true"
+                    class="absolute inset-x-0 bottom-[50px] flex justify-center"
                 >
-                    {{ activeSubtitle.text }}
-                </p>
+                    <p
+                        data-preview-subtitle="true"
+                        :data-preview-subtitle-preset="activeSubtitlePreset"
+                        class="inline-block max-w-[80%] break-words rounded bg-black/45 px-3 py-1 text-center text-[24px] leading-[1.45] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                        :style="activeSubtitleStyle"
+                    >
+                        {{ activeSubtitle.text }}
+                    </p>
+                </div>
             </template>
             <img
                 v-else
