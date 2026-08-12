@@ -11,7 +11,9 @@ import {
 } from './media-protocol';
 import {
     createLangGraphVideoAgentController,
-    registerVideoAgentIpc
+    registerVideoAgentIpc,
+    resolveVideoAgentFfmpegPath,
+    resolveVideoAgentFfprobePath
 } from './video-agent-ipc';
 import { registerVideoExportIpc } from './video-export-ipc';
 import {
@@ -87,6 +89,18 @@ app.whenReady().then(() => {
         controller: createLangGraphVideoAgentController({
             customVoiceReferenceResolver:
                 customVoiceLibrary.resolveReferencePath,
+            ffmpegPath: resolveVideoAgentFfmpegPath({
+                appPath: app.getAppPath(),
+                isPackaged: app.isPackaged,
+                platform: process.platform,
+                resourcesPath: process.resourcesPath
+            }),
+            ffprobePath: resolveVideoAgentFfprobePath({
+                appPath: app.getAppPath(),
+                isPackaged: app.isPackaged,
+                platform: process.platform,
+                resourcesPath: process.resourcesPath
+            }),
             store: videoProjectStore,
             voiceOutputDirectory: path.join(agentRunDirectory, 'voices')
         }),

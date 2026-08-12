@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+    ensureBundledMediaBinariesReady,
     ensureExecutableFile,
     findCachedElectronArchive,
     getDefaultElectronCacheDirectory,
@@ -188,5 +189,40 @@ describe('ensure Electron installation helpers', () => {
 
         const packageBinStat = await stat(packageBinPath);
         expect(packageBinStat.mode & 0o111).not.toBe(0);
+    });
+
+    it('prepares bundled media binaries for macOS Gatekeeper checks', async () => {
+        const appDirectory = await createTemporaryDirectory();
+        const binDirectory = join(appDirectory, 'bin', 'darwin');
+        const ffmpegPath = join(binDirectory, 'ffmpeg');
+        const ffprobePath = join(binDirectory, 'ffprobe');
+        const commands: { args: string[]; command: string }[] = [];
+
+        await mkdir(binDirectory, { recursive: true });
+        await writeFile(ffmpegPath, '#!/usr/bin/env node\n');
+        await writeFile(ffprobePath, '#!/usr/bin/env node\n');
+        await chmod(ffmpegPath, 0o644);
+        await chmod(ffprobePath, 0o644);
+
+        await ensureBundledMediaBinariesReady({
+            appDirectory,
+            commandRunner: async (command, args) => {
+                commands.push({ args, command });
+            },
+            platform: 'darwin'
+        });
+
+        expect((await stat(ffmpegPath)).mode & 0o111).not.toBe(0);
+        expect((await stat(ffprobePath)).mode & 0o111).not.toBe(0);
+        expect(commands).toEqual([
+            {
+                args: ['-dr', 'com.apple.quarantine', ffmpegPath],
+                command: 'xattr'
+            },
+            {
+                args: ['-dr', 'com.apple.quarantine', ffprobePath],
+                command: 'xattr'
+            }
+        ]);
     });
 });

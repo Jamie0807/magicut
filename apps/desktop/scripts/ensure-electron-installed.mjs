@@ -10,11 +10,11 @@ import {
     stat,
     writeFile
 } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const require = createRequire(import.meta.url);
@@ -102,6 +102,56 @@ export async function ensureElectronForgeCliExecutable() {
         console.info(
             `[electron-forge] Restored execute permission on ${forgeCliPath}`
         );
+    }
+}
+
+export function getBundledMediaBinaryPaths({
+    appDirectory = process.cwd(),
+    platform = process.platform
+} = {}) {
+    const executableExtension = platform === 'win32' ? '.exe' : '';
+    const binDirectory = join(appDirectory, 'bin', platform);
+
+    return ['ffmpeg', 'ffprobe'].map((name) =>
+        join(binDirectory, `${name}${executableExtension}`)
+    );
+}
+
+export async function removeMacOSQuarantineAttribute(
+    filePath,
+    commandRunner = runCommand
+) {
+    await commandRunner('xattr', ['-dr', 'com.apple.quarantine', filePath], {
+        stdio: 'ignore'
+    });
+}
+
+export async function ensureBundledMediaBinariesReady({
+    appDirectory = resolve(dirname(currentFilePath), '..'),
+    commandRunner = runCommand,
+    platform = process.platform
+} = {}) {
+    const binaryPaths = getBundledMediaBinaryPaths({
+        appDirectory,
+        platform
+    });
+
+    for (const binaryPath of binaryPaths) {
+        if (!(await pathExists(binaryPath))) continue;
+
+        await ensureExecutableFile(binaryPath);
+
+        if (platform !== 'darwin') continue;
+
+        try {
+            await removeMacOSQuarantineAttribute(binaryPath, commandRunner);
+        } catch (error) {
+            console.warn(
+                `[media] Could not remove macOS quarantine from ${binaryPath}: ${
+                    error instanceof Error ? error.message : error
+                }`
+            );
+        }
     }
 }
 
@@ -272,7 +322,8 @@ export async function ensureElectronInstalled({
 if (process.argv[1] === currentFilePath) {
     Promise.all([
         ensureElectronInstalled(),
-        ensureElectronForgeCliExecutable()
+        ensureElectronForgeCliExecutable(),
+        ensureBundledMediaBinariesReady()
     ]).catch((error) => {
         console.error(error instanceof Error ? error.message : error);
         process.exit(1);

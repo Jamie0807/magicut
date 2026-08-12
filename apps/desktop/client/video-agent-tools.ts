@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process';
 import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import type {
     AssetAnalysis,
@@ -24,7 +26,38 @@ import {
 
 import type { VideoProjectStore } from './video-project-store';
 
+const execFileAsync = promisify(execFile);
+
 const supportedVideoExtensions = new Set(['.m4v', '.mov', '.mp4', '.webm']);
+
+type MediaProbeResult = {
+    codecName: string;
+    durationMs: number;
+    filePath: string;
+    fps: number;
+    height: number;
+    pixelFormat?: string;
+    width: number;
+};
+
+type MediaProbe = (input: {
+    ffprobePath: string;
+    filePath: string;
+}) => Promise<MediaProbeResult>;
+
+type RunMediaCommand = (input: {
+    args: string[];
+    command: string;
+}) => Promise<void>;
+
+type ScannedVideoAsset = AssetAnalysis & {
+    codecName?: string;
+    fps?: number;
+    height?: number;
+    originalPath: string;
+    pixelFormat?: string;
+    width?: number;
+};
 
 type FileSystemEntry = {
     isFile: () => boolean;
@@ -38,6 +71,79 @@ const createSafeId = (value: string) => {
 };
 
 const padIndex = (index: number) => String(index).padStart(3, '0');
+
+const probeVideoAsset: MediaProbe = async ({ ffprobePath, filePath }) => {
+    const { stdout } = await execFileAsync(ffprobePath, [
+        '-v',
+        'error',
+        '-print_format',
+        'json',
+        '-show_format',
+        '-show_streams',
+        filePath
+    ]);
+    const metadata = JSON.parse(stdout) as {
+        format?: { duration?: string };
+        streams?: {
+            codec_name?: string;
+            codec_type?: string;
+            duration?: string;
+            height?: number;
+            pix_fmt?: string;
+            r_frame_rate?: string;
+            width?: number;
+        }[];
+    };
+    const videoStream = metadata.streams?.find(
+        (stream) => stream.codec_type === 'video'
+    );
+
+    if (!videoStream) {
+        throw new Error(`No video stream found in ${filePath}`);
+    }
+
+    return {
+        codecName: videoStream.codec_name ?? '',
+        durationMs:
+            parseSecondsToMs(videoStream.duration) ||
+            parseSecondsToMs(metadata.format?.duration),
+        filePath,
+        fps: parseFrameRate(videoStream.r_frame_rate),
+        height: videoStream.height ?? 0,
+        pixelFormat: videoStream.pix_fmt,
+        width: videoStream.width ?? 0
+    };
+};
+
+const parseSecondsToMs = (value: string | undefined) => {
+    const seconds = Number(value);
+
+    if (!Number.isFinite(seconds)) return 0;
+
+    return Math.round(seconds * 1000);
+};
+
+const parseFrameRate = (value: string | undefined) => {
+    if (!value) return 0;
+
+    const [rawNumerator, rawDenominator] = value.split('/');
+    const numerator = Number(rawNumerator);
+    const denominator = Number(rawDenominator ?? 1);
+
+    if (
+        !Number.isFinite(numerator) ||
+        !Number.isFinite(denominator) ||
+        denominator === 0
+    ) {
+        return 0;
+    }
+
+    return Math.round((numerator / denominator) * 1000) / 1000;
+};
+
+const defaultRunMediaCommand: RunMediaCommand = async ({ args, command }) => {
+    await execFileAsync(command, args);
+};
 
 const splitSentences = (text: string) => {
     return text
@@ -238,6 +344,85 @@ type TimedScene = {
 const createSceneVoiceScript = (scene: PlannedScene) =>
     scene.subtitleLines.join('\n') || scene.script;
 
+const shouldCreatePreviewProxy = ({
+    codecName,
+    filePath,
+    pixelFormat
+}: {
+    codecName?: string;
+    filePath: string;
+    pixelFormat?: string;
+}) => {
+    const extension = path.extname(filePath).toLowerCase();
+    const codec = codecName?.toLowerCase() ?? '';
+    const format = pixelFormat?.toLowerCase() ?? '';
+
+    return (
+        codec === 'hevc' ||
+        codec === 'h265' ||
+        format.includes('10le') ||
+        extension === '.mov'
+    );
+};
+
+const createPreviewProxyFilePath = ({
+    assetId,
+    previewProxyDirectory
+}: {
+    assetId: string;
+    previewProxyDirectory: string;
+}) => path.join(previewProxyDirectory, `${assetId}.mp4`);
+
+const createPreviewProxy = async ({
+    assetId,
+    ffmpegPath,
+    originalPath,
+    previewProxyDirectory,
+    runMediaCommand
+}: {
+    assetId: string;
+    ffmpegPath: string;
+    originalPath: string;
+    previewProxyDirectory: string;
+    runMediaCommand: RunMediaCommand;
+}) => {
+    await mkdir(previewProxyDirectory, { recursive: true });
+
+    const outputPath = createPreviewProxyFilePath({
+        assetId,
+        previewProxyDirectory
+    });
+    const args = [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-i',
+        originalPath,
+        '-map',
+        '0:v:0',
+        '-an',
+        '-vf',
+        'scale=if(gt(a\\,1)\\,1920\\,-2):if(gt(a\\,1)\\,-2\\,1080):flags=lanczos,format=yuv420p',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputPath
+    ];
+
+    await runMediaCommand({
+        args,
+        command: ffmpegPath
+    });
+
+    return outputPath;
+};
+
 const createVoiceSegmentKey = ({
     lineIndex,
     sceneId
@@ -324,23 +509,34 @@ const createTimedScenes = ({
 };
 
 export const createDesktopVideoAgentTools = ({
+    ffmpegPath,
+    ffprobePath,
     getSelectedVoice,
     getSelectedVoiceType,
+    mediaProbe = probeVideoAsset,
     modelProvider,
     now = () => new Date().toISOString(),
+    previewProxyDirectory,
+    runMediaCommand = defaultRunMediaCommand,
     store,
     ttsProvider,
     voiceOutputDirectory
 }: {
+    ffmpegPath?: string;
+    ffprobePath?: string;
     getSelectedVoice?: (runId: string) => string | undefined;
     getSelectedVoiceType?: (runId: string) => string | undefined;
+    mediaProbe?: MediaProbe;
     modelProvider?: ModelProvider;
     now?: () => string;
+    previewProxyDirectory?: string;
+    runMediaCommand?: RunMediaCommand;
     store: VideoProjectStore;
     ttsProvider?: TtsProvider;
     voiceOutputDirectory?: string;
 }): VideoAgentTools => {
     const assetPaths = new Map<string, string>();
+    const scannedVideoAssets = new Map<string, ScannedVideoAsset>();
     const resolveTtsSpeaker = (runId: string) =>
         getSelectedVoiceType?.(runId) ?? defaultVideoAgentVoice.voiceType;
 
@@ -369,21 +565,54 @@ export const createDesktopVideoAgentTools = ({
                 usedVideoAssetIds.size > 0
                     ? [...usedVideoAssetIds]
                     : assets.map((asset) => asset.assetId);
-            const videoAssets = fallbackAssetIds.map((assetId, index) => {
-                const asset = assetById.get(assetId);
-
-                return {
-                    durationMs: asset?.durationMs ?? 6000,
-                    fps: 30,
-                    height: 1080,
-                    id: assetId,
-                    path:
+            const resolvedPreviewProxyDirectory =
+                previewProxyDirectory ??
+                path.join(
+                    voiceOutputDirectory
+                        ? path.dirname(voiceOutputDirectory)
+                        : path.join(input.sourceAssetDirectory, '.magicut'),
+                    'preview-proxies',
+                    safeRunId
+                );
+            const videoAssets = await Promise.all(
+                fallbackAssetIds.map(async (assetId, index) => {
+                    const asset = assetById.get(assetId);
+                    const scannedAsset = scannedVideoAssets.get(assetId);
+                    const originalPath =
+                        scannedAsset?.originalPath ??
                         assetPaths.get(assetId) ??
-                        path.join(input.sourceAssetDirectory, `${assetId}.mp4`),
-                    thumbnailIds: [`thumbnail_asset_${padIndex(index + 1)}`],
-                    width: 1920
-                };
-            });
+                        path.join(input.sourceAssetDirectory, `${assetId}.mp4`);
+                    const needsPreviewProxy =
+                        ffmpegPath &&
+                        shouldCreatePreviewProxy({
+                            codecName: scannedAsset?.codecName,
+                            filePath: originalPath,
+                            pixelFormat: scannedAsset?.pixelFormat
+                        });
+                    const previewPath = needsPreviewProxy
+                        ? await createPreviewProxy({
+                              assetId,
+                              ffmpegPath,
+                              originalPath,
+                              previewProxyDirectory:
+                                  resolvedPreviewProxyDirectory,
+                              runMediaCommand
+                          })
+                        : originalPath;
+
+                    return {
+                        durationMs: asset?.durationMs ?? 6000,
+                        fps: scannedAsset?.fps || 30,
+                        height: scannedAsset?.height || 1080,
+                        id: assetId,
+                        path: previewPath,
+                        thumbnailIds: [
+                            `thumbnail_asset_${padIndex(index + 1)}`
+                        ],
+                        width: scannedAsset?.width || 1920
+                    };
+                })
+            );
             const thumbnails = videoAssets.map((asset) => ({
                 id: asset.thumbnailIds[0] ?? `thumbnail_${asset.id}`,
                 path: `assets/thumbnails/${asset.id}.jpg`,
@@ -692,22 +921,56 @@ export const createDesktopVideoAgentTools = ({
 
             const safeRunId = createSafeId(input.runId);
 
-            return videoEntries.slice(0, 24).map((entry, index) => {
-                const assetId = `video_asset_${safeRunId}_${padIndex(
-                    index + 1
-                )}`;
+            return Promise.all(
+                videoEntries.slice(0, 24).map(async (entry, index) => {
+                    const assetId = `video_asset_${safeRunId}_${padIndex(
+                        index + 1
+                    )}`;
+                    const originalPath = path.join(
+                        input.sourceAssetDirectory,
+                        entry.name
+                    );
+                    let metadata: MediaProbeResult | undefined;
 
-                assetPaths.set(
-                    assetId,
-                    path.join(input.sourceAssetDirectory, entry.name)
-                );
+                    if (ffprobePath) {
+                        try {
+                            metadata = await mediaProbe({
+                                ffprobePath,
+                                filePath: originalPath
+                            });
+                        } catch {
+                            metadata = undefined;
+                        }
+                    }
 
-                return {
-                    assetId,
-                    description: `本地视频素材 ${entry.name}`,
-                    durationMs: 5000 + (index % 5) * 1500
-                };
-            });
+                    assetPaths.set(assetId, originalPath);
+
+                    const asset: ScannedVideoAsset = {
+                        assetId,
+                        codecName: metadata?.codecName,
+                        description: `本地视频素材 ${entry.name}${
+                            metadata?.codecName
+                                ? `（${metadata.codecName}）`
+                                : ''
+                        }`,
+                        durationMs:
+                            metadata?.durationMs || 5000 + (index % 5) * 1500,
+                        fps: metadata?.fps,
+                        height: metadata?.height,
+                        originalPath,
+                        pixelFormat: metadata?.pixelFormat,
+                        width: metadata?.width
+                    };
+
+                    scannedVideoAssets.set(assetId, asset);
+
+                    return {
+                        assetId: asset.assetId,
+                        description: asset.description,
+                        durationMs: asset.durationMs
+                    };
+                })
+            );
         },
         streamReport: async (input, emitDelta) => {
             if (!modelProvider?.streamReport) return '';

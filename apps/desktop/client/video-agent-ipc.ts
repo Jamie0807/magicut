@@ -37,6 +37,7 @@ import {
     isVoiceRegenerationCancelled,
     regenerateVideoProjectVoices
 } from './video-agent-voice-regeneration';
+import { resolveVideoExportBinaries } from './video-export-binaries';
 import type { VideoProjectStore } from './video-project-store';
 
 export { videoAgentIpcChannels };
@@ -119,6 +120,8 @@ type ProviderFactoryInput = {
     customVoiceReferenceResolver?: (
         voiceId: string
     ) => Promise<string> | string;
+    ffmpegPath?: string;
+    ffprobePath?: string;
     loadEnv?: () => AgentEnv;
     modelProvider?: ModelProvider;
     ttsProvider?: TtsProvider;
@@ -147,6 +150,20 @@ const failure = <T>({
     },
     success: false
 });
+
+export const resolveVideoAgentFfprobePath = (input: {
+    appPath: string;
+    isPackaged: boolean;
+    platform: typeof process.platform;
+    resourcesPath: string;
+}) => resolveVideoExportBinaries(input).ffprobePath;
+
+export const resolveVideoAgentFfmpegPath = (input: {
+    appPath: string;
+    isPackaged: boolean;
+    platform: typeof process.platform;
+    resourcesPath: string;
+}) => resolveVideoExportBinaries(input).ffmpegPath;
 
 const normalizeStartInput = (input: VideoAgentStartInput) => ({
     ...input,
@@ -205,6 +222,7 @@ const findAgentEnvFilePath = () => {
 
 const createDefaultProviders = ({
     customVoiceReferenceResolver,
+    ffprobePath,
     loadEnv,
     modelProvider,
     ttsProvider
@@ -219,12 +237,13 @@ const createDefaultProviders = ({
     const env =
         loadEnv?.() ?? loadAgentEnv({ envFilePath: findAgentEnvFilePath() });
     const defaultTtsProvider =
-        ttsProvider ?? new VolcengineTtsProvider({ env });
+        ttsProvider ?? new VolcengineTtsProvider({ env, ffprobePath });
     const resolvedTtsProvider =
         ttsProvider || !customVoiceReferenceResolver
             ? defaultTtsProvider
             : new RoutingTtsProvider({
                   customProvider: new IndexTts2Provider({
+                      ffprobePath,
                       resolveVoiceReferencePath: customVoiceReferenceResolver
                   }),
                   defaultProvider: defaultTtsProvider
@@ -586,6 +605,8 @@ export const createLangGraphVideoAgentController = ({
     createRunId = () => `run_${randomUUID()}`,
     createRunner,
     customVoiceReferenceResolver,
+    ffmpegPath,
+    ffprobePath,
     loadEnv,
     modelProvider,
     now = () => new Date().toISOString(),
@@ -598,6 +619,8 @@ export const createLangGraphVideoAgentController = ({
     customVoiceReferenceResolver?: (
         voiceId: string
     ) => Promise<string> | string;
+    ffmpegPath?: string;
+    ffprobePath?: string;
     loadEnv?: () => AgentEnv;
     modelProvider?: ModelProvider;
     now?: () => string;
@@ -628,6 +651,7 @@ export const createLangGraphVideoAgentController = ({
 
         providers = createDefaultProviders({
             customVoiceReferenceResolver,
+            ffprobePath,
             loadEnv,
             modelProvider,
             ttsProvider
@@ -653,6 +677,8 @@ export const createLangGraphVideoAgentController = ({
         runner = createVideoCreationGraph({
             emit: emitGraphEvent,
             tools: createDesktopVideoAgentTools({
+                ffmpegPath,
+                ffprobePath,
                 getSelectedVoice,
                 getSelectedVoiceType,
                 modelProvider: runnerProviders.modelProvider,

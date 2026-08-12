@@ -973,6 +973,139 @@ describe('create agent flow', () => {
         }
     });
 
+    it('stores Electron-playable preview proxies for HEVC MOV video assets', async () => {
+        const assetDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-assets-')
+        );
+        const projectsDirectory = await mkdtemp(
+            path.join(tmpdir(), 'magicut-projects-')
+        );
+        const proxyDirectory = path.join(projectsDirectory, 'preview-proxies');
+        const commands: string[][] = [];
+
+        try {
+            await mkdir(assetDirectory, { recursive: true });
+            await writeFile(path.join(assetDirectory, 'iphone-hevc.MOV'), '');
+
+            const { createVideoProjectStore } = await import(
+                '../client/video-project-store'
+            );
+            const { createDesktopVideoAgentTools } = await import(
+                '../client/video-agent-tools'
+            );
+            const store = createVideoProjectStore({ projectsDirectory });
+            const tools = createDesktopVideoAgentTools({
+                ffmpegPath: '/usr/local/bin/ffmpeg',
+                ffprobePath: '/usr/local/bin/ffprobe',
+                mediaProbe: async ({ filePath }) => ({
+                    codecName: 'hevc',
+                    durationMs: 12_000,
+                    filePath,
+                    fps: 30,
+                    height: 2160,
+                    pixelFormat: 'yuv420p10le',
+                    width: 3840
+                }),
+                previewProxyDirectory: proxyDirectory,
+                runMediaCommand: async ({ args }) => {
+                    commands.push(args);
+                    await writeFile(args.at(-1) ?? '', new Uint8Array([1]));
+                },
+                store
+            });
+            const input = {
+                prompt: '杭州青山湖旅游攻略',
+                runId: 'run_hevc_preview_proxy',
+                sourceAssetDirectory: assetDirectory
+            };
+            const assets = await tools.scanAssets({ input });
+            const scenes = [
+                {
+                    durationMs: 8000,
+                    goal: '验证预览代理',
+                    id: 'scene_001',
+                    index: 1,
+                    script: '使用本地素材展示画面',
+                    subtitleLines: ['使用本地素材展示画面'],
+                    title: '本地素材预览',
+                    visualIntent: 'iPhone HEVC 素材'
+                }
+            ];
+            const saved = await tools.assembleTimeline({
+                assets,
+                brief: {
+                    audience: '短视频创作者',
+                    keyMessages: ['本地素材'],
+                    summary: '杭州青山湖旅游攻略',
+                    title: '杭州青山湖',
+                    tone: '自然',
+                    visualStyle: '实拍'
+                },
+                input,
+                matches: [
+                    {
+                        rankedAssetIds: [
+                            {
+                                assetId: assets[0]!.assetId,
+                                reason: '本地素材匹配',
+                                score: 0.9
+                            }
+                        ],
+                        sceneId: 'scene_001'
+                    }
+                ],
+                scenes,
+                voices: [
+                    {
+                        assetId: 'voice_asset_001_001',
+                        durationMs: 8000,
+                        lineIndex: 0,
+                        path: path.join(projectsDirectory, 'voice.mp3'),
+                        sceneId: 'scene_001',
+                        text: '使用本地素材展示画面'
+                    }
+                ]
+            });
+
+            const videoAsset = saved.assets.videos[0];
+
+            expect(videoAsset?.path).toBe(
+                path.join(
+                    proxyDirectory,
+                    'video_asset_run_hevc_preview_proxy_001.mp4'
+                )
+            );
+            expect(commands[0]).toEqual([
+                '-hide_banner',
+                '-loglevel',
+                'error',
+                '-i',
+                path.join(assetDirectory, 'iphone-hevc.MOV'),
+                '-map',
+                '0:v:0',
+                '-an',
+                '-vf',
+                'scale=if(gt(a\\,1)\\,1920\\,-2):if(gt(a\\,1)\\,-2\\,1080):flags=lanczos,format=yuv420p',
+                '-c:v',
+                'libx264',
+                '-preset',
+                'veryfast',
+                '-crf',
+                '23',
+                '-movflags',
+                '+faststart',
+                '-y',
+                path.join(
+                    proxyDirectory,
+                    'video_asset_run_hevc_preview_proxy_001.mp4'
+                )
+            ]);
+        } finally {
+            await rm(assetDirectory, { force: true, recursive: true });
+            await rm(projectsDirectory, { force: true, recursive: true });
+        }
+    });
+
     it('keeps sandboxed preload free from main-only IPC modules', () => {
         const preloadSource = readFileSync(
             resolve(__dirname, '../client/preload.ts'),
@@ -1049,6 +1182,45 @@ describe('create agent flow', () => {
         expect(workspaceSource).not.toContain(
             'await router.push(`/create/runs/${result.data.runId}`)'
         );
+    });
+
+    it('uses the bundled ffprobe binary for desktop TTS providers', async () => {
+        const { resolveVideoAgentFfmpegPath, resolveVideoAgentFfprobePath } =
+            await import('../client/video-agent-ipc');
+        const mainSource = readFileSync(
+            resolve(__dirname, '../client/main.ts'),
+            'utf8'
+        );
+        const ipcSource = readFileSync(
+            resolve(__dirname, '../client/video-agent-ipc.ts'),
+            'utf8'
+        );
+
+        expect(
+            resolveVideoAgentFfprobePath({
+                appPath: '/repo/apps/desktop',
+                isPackaged: false,
+                platform: 'darwin',
+                resourcesPath: '/Applications/Magicut.app/Contents/Resources'
+            })
+        ).toBe('/repo/apps/desktop/bin/darwin/ffprobe');
+        expect(mainSource).toContain('resolveVideoAgentFfprobePath');
+        expect(mainSource).toContain(
+            'ffprobePath: resolveVideoAgentFfprobePath'
+        );
+        expect(
+            resolveVideoAgentFfmpegPath({
+                appPath: '/repo/apps/desktop',
+                isPackaged: false,
+                platform: 'darwin',
+                resourcesPath: '/Applications/Magicut.app/Contents/Resources'
+            })
+        ).toBe('/repo/apps/desktop/bin/darwin/ffmpeg');
+        expect(mainSource).toContain('resolveVideoAgentFfmpegPath');
+        expect(mainSource).toContain('ffmpegPath: resolveVideoAgentFfmpegPath');
+        expect(ipcSource).toContain('new VolcengineTtsProvider({');
+        expect(ipcSource).toContain('ffprobePath');
+        expect(ipcSource).toContain('new IndexTts2Provider({');
     });
 
     it('deduplicates repeated TTS failures in the agent progress panel', async () => {
