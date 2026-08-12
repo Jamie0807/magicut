@@ -1,4 +1,5 @@
 {
+    "extends": "./.nuxt/tsconfig.json",
     "compilerOptions": {
         "target": "ES2017",
         "lib": ["dom", "dom.iterable", "esnext"],
@@ -15,15 +16,8 @@
         },
         "types": ["node"],
         "resolveJsonModule": true,
-        "isolatedModules": true,
-        "jsx": "preserve",
-        "incremental": true,
-        "plugins": [
-            {
-                "name": "next"
-            }
-        ]
+        "isolatedModules": true
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+    "include": ["**/*.ts", "**/*.vue", ".nuxt/**/*.ts"],
     "exclude": ["node_modules"]
 }

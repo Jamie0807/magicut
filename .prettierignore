@@ -1,4 +1,6 @@
 **/*.hbs
 .codex/
 .cspellcache
+**/.nuxt/
+**/.output/
 pnpm-lock.yaml
