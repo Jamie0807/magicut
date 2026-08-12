@@ -1,9 +1,18 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+    chmod,
+    mkdir,
+    mkdtemp,
+    readFile,
+    rm,
+    stat,
+    writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+    ensureExecutableFile,
     findCachedElectronArchive,
     getDefaultElectronCacheDirectory,
     getElectronArchiveName,
@@ -167,5 +176,17 @@ describe('ensure Electron installation helpers', () => {
         await expect(
             isElectronInstallUsable(electronDirectory, '38.4.0', 'darwin')
         ).resolves.toBe(true);
+    });
+
+    it('restores execute permissions for package bin files', async () => {
+        const packageBinPath = join(await createTemporaryDirectory(), 'bin.js');
+
+        await writeFile(packageBinPath, '#!/usr/bin/env node\n');
+        await chmod(packageBinPath, 0o644);
+
+        await expect(ensureExecutableFile(packageBinPath)).resolves.toBe(true);
+
+        const packageBinStat = await stat(packageBinPath);
+        expect(packageBinStat.mode & 0o111).not.toBe(0);
     });
 });

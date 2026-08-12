@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module';
 import type { DatabaseSync } from 'node:sqlite';
 
 import { agentDatabaseSchemaStatements } from './schema.sql';
@@ -10,10 +9,8 @@ export type AgentDatabase = {
     database: DatabaseSync;
 };
 
-const require = createRequire(import.meta.url);
-
 const loadSqliteModule = (): SqliteModule =>
-    require('node:sqlite') as SqliteModule;
+    process.getBuiltinModule('node:sqlite') as SqliteModule;
 
 export const createAgentDatabase = ({
     filename

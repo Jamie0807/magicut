@@ -23,4 +23,19 @@ describe('electron main bundle config', () => {
         expect(mainSource).toContain('agent-runs');
         expect(mainSource).toContain('voices');
     });
+
+    it('does not rely on import.meta.url when loading the SQLite builtin for the main bundle', () => {
+        const agentDatabaseSource = readFileSync(
+            resolve(
+                __dirname,
+                '../../../packages/video-agent/src/storage/create-agent-database.ts'
+            ),
+            'utf8'
+        );
+
+        expect(agentDatabaseSource).not.toContain(
+            'createRequire(import.meta.url)'
+        );
+        expect(agentDatabaseSource).toContain('process.getBuiltinModule');
+    });
 });

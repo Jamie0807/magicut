@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
 import { constants } from 'node:fs';
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import {
+    access,
+    chmod,
+    mkdir,
+    readdir,
+    readFile,
+    stat,
+    writeFile
+} from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -69,6 +77,31 @@ export async function pathExists(filePath) {
         return true;
     } catch {
         return false;
+    }
+}
+
+export async function ensureExecutableFile(filePath) {
+    try {
+        await access(filePath, constants.X_OK);
+        return false;
+    } catch {
+        const fileStat = await stat(filePath);
+        await chmod(filePath, fileStat.mode | 0o111);
+        return true;
+    }
+}
+
+export async function ensureElectronForgeCliExecutable() {
+    const forgePackagePath = require.resolve(
+        '@electron-forge/cli/package.json'
+    );
+    const forgeDirectory = dirname(forgePackagePath);
+    const forgeCliPath = join(forgeDirectory, 'dist', 'electron-forge.js');
+
+    if (await ensureExecutableFile(forgeCliPath)) {
+        console.info(
+            `[electron-forge] Restored execute permission on ${forgeCliPath}`
+        );
     }
 }
 
@@ -237,7 +270,10 @@ export async function ensureElectronInstalled({
 }
 
 if (process.argv[1] === currentFilePath) {
-    ensureElectronInstalled().catch((error) => {
+    Promise.all([
+        ensureElectronInstalled(),
+        ensureElectronForgeCliExecutable()
+    ]).catch((error) => {
         console.error(error instanceof Error ? error.message : error);
         process.exit(1);
     });
