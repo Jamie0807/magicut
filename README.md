@@ -26,6 +26,7 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 - 独立智能体运行页 `/create/runs/:runId`，用于展示创建过程、分镜确认、阶段进度和完成后的编辑器入口。
 - Agent 运行事件支持 `model.stream.*` 流式公开阶段报告，并可把运行会话持久化到视频工程的 `ai.conversation`。
 - `magicut-media://` 本地媒体协议，用于在 Electron 中预览项目视频、配音和缩略图素材。
+- 本地 HEVC/H.265、10-bit、`.MOV` 等 Electron 预览不稳定素材会自动生成 H.264 MP4 预览代理，减少 iPhone 原片在编辑器中黑屏的问题。
 - 编辑器内真实素材预览、播放/暂停、字幕浮层、时间线播放头和分镜高亮。
 - 编辑器内已有导出弹窗、输出路径选择和基础导出链路。
 
@@ -58,6 +59,7 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 - 样式方案：Tailwind CSS `4.1.x` + `@tailwindcss/vite`，使用 Tailwind v4 CSS-first 入口和组件内 utility class。
 - 测试工具：Vitest，用于桌面端流程、IPC、媒体协议和核心 UI 状态测试。
 - 本地文件能力：通过 Electron main/preload IPC 暴露给 renderer，例如 `fileDialog.selectSourceDirectory()`、视频工程读写、自定义音色导入和导出路径选择。
+- 本地媒体处理：内置 FFmpeg/FFprobe 二进制用于媒体探测、TTS 音频时长解析、视频导出和 HEVC/MOV 预览代理生成。
 
 ### 前端状态、路由与样式
 
@@ -124,6 +126,9 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 - 当前只扫描所选目录的第一层文件，不递归扫描子目录。
 - Electron 需要当前系统用户具备该目录读取权限。
 - 生成后的工程会通过 `magicut-media://` 协议读取项目内视频、缩略图和配音素材。
+- iPhone 常见的 HEVC/H.265、10-bit、`.MOV` 原片可能在 Electron 内置 Chromium 预览中黑屏。创建工程时，桌面端会用内置 FFmpeg 自动生成 H.264/yuv420p 的 `.mp4` 预览代理文件，并让编辑器预览读取该代理文件。
+- 预览代理只影响桌面端编辑器预览路径，不会修改原始素材文件；首次生成工程时如果素材较大，可能会多等待一小段转码时间。
+- 已经生成过的旧工程不会自动改写素材路径。如果旧工程里遇到 HEVC/MOV 黑屏，请重新走一次创建流程生成新工程。
 
 ### 必需的模型与 TTS 配置
 
@@ -258,7 +263,3 @@ pnpm -r --if-present run test:run
 ```
 
 - 不把 `pnpm -r --if-present run format` 当作纯验证命令，因为它会改写文件。
-
-## 当前状态说明
-
-这个仓库现阶段适合验证桌面端核心创作流程和继续迭代 AI 剪辑工作流；尚未完成的能力统一记录在上方 `当前进度` 小节。
