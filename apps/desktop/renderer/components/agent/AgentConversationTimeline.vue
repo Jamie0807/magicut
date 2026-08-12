@@ -38,10 +38,10 @@ const messageKind = (message: AgentConversationMessage) => {
 };
 
 const messageClassName = (message: AgentConversationMessage) => [
-    'rounded-[18px] border px-5 py-4 shadow-[0_14px_44px_rgba(0,0,0,0.22)]',
+    'w-full rounded-[18px] border px-5 py-4 shadow-[0_14px_44px_rgba(0,0,0,0.22)]',
     message.role === 'user'
-        ? 'ml-auto w-[760px] border-[#363C48] bg-[#242833] text-[#F5F7FA]'
-        : 'mr-auto w-[760px] border-[#292E3A] bg-[#151820] text-[#EEF2F8]',
+        ? 'border-[#363C48] bg-[#242833] text-[#F5F7FA]'
+        : 'border-[#292E3A] bg-[#151820] text-[#EEF2F8]',
     message.tone === 'failed' ? 'border-[#70414D] bg-[#2A1720]' : '',
     message.tone === 'waiting' ? 'border-[#6B5B80]' : ''
 ];
@@ -54,6 +54,16 @@ const statusLabel = (status: string) => {
     if (status === 'cancelled') return '已取消';
 
     return status;
+};
+
+const shouldRenderMessageContent = (message: AgentConversationMessage) => {
+    if (!message.content) return false;
+
+    return !message.blocks?.some(
+        (block) =>
+            block.type === 'paragraph' &&
+            block.text.trim() === message.content.trim()
+    );
 };
 
 const progressBlocks = computed(() =>
@@ -198,7 +208,7 @@ const progressBlocks = computed(() =>
                     </ol>
                 </template>
                 <p
-                    v-if="message.content"
+                    v-if="shouldRenderMessageContent(message)"
                     class="whitespace-pre-line text-[14px] leading-[24px] font-[700] text-[#E8ECF5]"
                     :data-typewriter-active="
                         message.sourceEventType === 'model.stream.delta'
@@ -228,7 +238,7 @@ const progressBlocks = computed(() =>
                 viewModel.canCancel ||
                 viewModel.editorHref
             "
-            class="mr-auto flex w-[760px] items-center gap-3"
+            class="flex w-full items-center gap-3"
         >
             <button
                 v-if="viewModel.canApprove"
@@ -256,7 +266,7 @@ const progressBlocks = computed(() =>
         </li>
         <li
             v-if="viewModel.messages.length === 0"
-            class="mr-auto w-[760px] rounded-[18px] border border-[#292E3A] bg-[#151820] px-5 py-4 text-[14px] font-[800] text-[#8F98A8]"
+            class="w-full rounded-[18px] border border-[#292E3A] bg-[#151820] px-5 py-4 text-[14px] font-[800] text-[#8F98A8]"
         >
             等待智能体执行事件
         </li>

@@ -55,23 +55,31 @@ onMounted(() => {
         class="relative h-screen min-h-[720px] overflow-hidden bg-[#08090D] text-[#F5F7FA]"
     >
         <WindowDragRegion />
-        <section
-            data-create-run-chat-shell="true"
-            class="relative mx-auto flex h-full w-[860px] flex-col"
+        <div
+            data-create-run-layout="true"
+            class="relative mx-auto grid min-h-0 h-full w-[calc(100%-96px)] max-w-[1360px] grid-cols-[minmax(0,1080px)_232px] gap-10"
         >
-            <time
-                class="mt-6 shrink-0 text-center text-[12px] leading-none font-[650] text-[#6F7784]"
+            <section
+                data-create-run-chat-shell="true"
+                class="relative flex min-h-0 min-w-0 flex-col overflow-hidden"
             >
-                {{ headerTime }}
-            </time>
-            <div class="min-h-0 flex-1 overflow-y-auto pb-[14px] pt-[18px]">
-                <AgentConversationTimeline
-                    :view-model="snapshot.viewModel"
-                    @approve="handleApprove"
-                    @cancel="handleCancel"
-                />
-            </div>
-        </section>
-        <AgentRunStageNav :stage-items="snapshot.viewModel.stageItems" />
+                <time
+                    class="mt-6 shrink-0 text-center text-[12px] leading-none font-[650] text-[#6F7784]"
+                >
+                    {{ headerTime }}
+                </time>
+                <div
+                    data-create-run-scroll-container="true"
+                    class="scrollbar-dark min-h-0 flex-1 overflow-y-auto pb-[28px] pr-2 pt-[18px]"
+                >
+                    <AgentConversationTimeline
+                        :view-model="snapshot.viewModel"
+                        @approve="handleApprove"
+                        @cancel="handleCancel"
+                    />
+                </div>
+            </section>
+            <AgentRunStageNav :stage-items="snapshot.viewModel.stageItems" />
+        </div>
     </main>
 </template>

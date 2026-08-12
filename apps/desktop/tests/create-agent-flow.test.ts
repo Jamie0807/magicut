@@ -1034,6 +1034,23 @@ describe('create agent flow', () => {
         expect(progressSource).toContain('打开编辑器');
     });
 
+    it('navigates to the run message page as soon as the agent run starts', () => {
+        const workspaceSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/HomePage.vue'),
+            'utf8'
+        );
+
+        expect(workspaceSource).toContain(
+            'void navigateToAgentRun(event.runId)'
+        );
+        expect(workspaceSource).toContain(
+            'router.push(`/create/runs/${runId}`)'
+        );
+        expect(workspaceSource).not.toContain(
+            'await router.push(`/create/runs/${result.data.runId}`)'
+        );
+    });
+
     it('deduplicates repeated TTS failures in the agent progress panel', async () => {
         const { createAgentProgressViewModel } = await import(
             '../renderer/components/create/createAgentProgressViewModel'

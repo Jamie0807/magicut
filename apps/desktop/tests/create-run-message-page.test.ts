@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Component } from 'vue';
 import { createSSRApp, h } from 'vue';
@@ -6,6 +8,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import { renderToString } from '@vue/server-renderer';
 
 import AgentConversationTimeline from '../renderer/components/agent/AgentConversationTimeline.vue';
+import AgentRunStageNav from '../renderer/components/agent/AgentRunStageNav.vue';
 import {
     type AgentRunConversationEvent,
     createAgentConversationViewModel
@@ -75,8 +78,50 @@ describe('create run message page', () => {
         expect(html).toContain('data-create-run-chat-shell="true"');
         expect(html).toContain('data-create-run-chat-body="true"');
         expect(html).toContain('data-agent-stage-nav="true"');
-        expect(html).toContain('w-[860px]');
+        expect(html).toContain('data-create-run-layout="true"');
+        expect(html).toContain('grid-cols-[minmax(0,1080px)_232px]');
         expect(html).not.toContain('CreateAgentProgress');
+    });
+
+    it('keeps the run page content aligned with a usable dark internal scrollbar', () => {
+        const pageSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/CreateRunScreen.vue'),
+            'utf8'
+        );
+        const timelineSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/agent/AgentConversationTimeline.vue'
+            ),
+            'utf8'
+        );
+        const stageNavSource = readFileSync(
+            resolve(
+                __dirname,
+                '../renderer/components/agent/AgentRunStageNav.vue'
+            ),
+            'utf8'
+        );
+        const cssSource = readFileSync(
+            resolve(__dirname, '../renderer/index.css'),
+            'utf8'
+        );
+
+        expect(pageSource).toContain('data-create-run-scroll-container');
+        expect(pageSource).toContain('overflow-y-auto');
+        expect(pageSource).toContain('scrollbar-dark');
+        expect(pageSource).not.toContain('scrollbar-none');
+        expect(pageSource).toContain('relative mx-auto grid min-h-0 h-full');
+        expect(pageSource).toContain(
+            'relative flex min-h-0 min-w-0 flex-col overflow-hidden'
+        );
+        expect(timelineSource).toContain('w-full');
+        expect(timelineSource).not.toContain('ml-auto w-[760px]');
+        expect(timelineSource).not.toContain('mr-auto w-[760px]');
+        expect(stageNavSource).not.toContain('fixed top-[88px] right-8');
+        expect(cssSource).toContain('.scrollbar-dark');
+        expect(cssSource).toContain('scrollbar-width: thin');
+        expect(cssSource).not.toContain('scrollbar-width: none');
     });
 
     it('aggregates model stream deltas into one assistant message and keeps structured progress separate', () => {
@@ -161,6 +206,106 @@ describe('create run message page', () => {
                 })
             ])
         );
+    });
+
+    it('renders streamed assistant content only once when it is also stored as a paragraph block', async () => {
+        const viewModel = createAgentConversationViewModel({
+            events: [
+                runStartedEvent,
+                {
+                    ...baseEvent,
+                    messageId: 'creative_brief-content-understanding',
+                    nodeName: 'creative_brief',
+                    sequence: 2,
+                    title: '内容理解',
+                    type: 'model.stream.started'
+                },
+                {
+                    ...baseEvent,
+                    delta: '我会先提炼主题，再拆解分镜。',
+                    messageId: 'creative_brief-content-understanding',
+                    nodeName: 'creative_brief',
+                    sequence: 3,
+                    type: 'model.stream.delta'
+                },
+                {
+                    ...baseEvent,
+                    messageId: 'creative_brief-content-understanding',
+                    nodeName: 'creative_brief',
+                    sequence: 4,
+                    type: 'model.stream.completed'
+                }
+            ] as AgentRunConversationEvent[]
+        });
+        const html = await renderComponent(AgentConversationTimeline, {
+            viewModel
+        });
+
+        expect(html.match(/我会先提炼主题，再拆解分镜。/g) ?? []).toHaveLength(
+            1
+        );
+    });
+
+    it('dedupes repeated run page failure messages with the same detail', () => {
+        const error =
+            'TTS conversion failed: {"error":"Forbidden.AgentPlanDeductNotEnabled"}';
+        const viewModel = createAgentConversationViewModel({
+            events: [
+                runStartedEvent,
+                {
+                    ...baseEvent,
+                    nodeName: 'tts',
+                    sequence: 2,
+                    type: 'node.started'
+                },
+                {
+                    ...baseEvent,
+                    error,
+                    nodeName: 'tts',
+                    sequence: 3,
+                    type: 'node.failed'
+                },
+                {
+                    ...baseEvent,
+                    error,
+                    sequence: 4,
+                    type: 'run.failed'
+                }
+            ] as AgentRunConversationEvent[]
+        });
+
+        expect(
+            viewModel.messages.filter(
+                (message) =>
+                    message.tone === 'failed' && message.content.includes(error)
+            )
+        ).toHaveLength(1);
+    });
+
+    it('shows status labels in the execution directory', async () => {
+        const html = await renderComponent(AgentRunStageNav, {
+            stageItems: [
+                {
+                    detail: '加载制片规范与文稿',
+                    label: '01 准备阶段',
+                    status: 'completed'
+                },
+                {
+                    detail: '生成分镜并等待确认',
+                    label: '02 创建分镜',
+                    status: 'running'
+                },
+                {
+                    detail: '合成口播并匹配素材',
+                    label: '03 配音生成',
+                    status: 'waiting'
+                }
+            ]
+        });
+
+        expect(html).toContain('已完成');
+        expect(html).toContain('执行中');
+        expect(html).toContain('等待中');
     });
 
     it('dedupes repeated approval events and turns scene-plan approval into a confirmation table', () => {

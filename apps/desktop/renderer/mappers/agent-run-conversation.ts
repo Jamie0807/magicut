@@ -307,6 +307,7 @@ export const createAgentConversationViewModel = ({
     const operationStatusMessages = new Map<string, AgentConversationMessage>();
     const streamMessages = new Map<string, AgentConversationMessage>();
     const progressStatuses = createInitialProgressStatuses();
+    const seenFailureDetails = new Set<string>();
     let progressMessage: AgentConversationMessage | undefined;
 
     const ensureProgressMessage = (event: AgentRunConversationEvent) => {
@@ -379,6 +380,11 @@ export const createAgentConversationViewModel = ({
                 : event.type === 'node.failed'
                   ? `${copy.failed}${event.error ? ` ${event.error}` : ''}`
                   : copy.running;
+
+        if (event.type === 'node.failed' && event.error) {
+            seenFailureDetails.add(event.error);
+        }
+
         const existing = operationStatusMessages.get(event.nodeName);
 
         if (existing) {
@@ -617,6 +623,9 @@ export const createAgentConversationViewModel = ({
             if (progressMessage) {
                 progressMessage.tone = 'failed';
             }
+            if (seenFailureDetails.has(event.error)) return;
+
+            seenFailureDetails.add(event.error);
             messages.push(
                 createMessage({
                     content: event.error,

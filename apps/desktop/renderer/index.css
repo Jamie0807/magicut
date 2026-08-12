@@ -25,6 +25,30 @@
 }
 
 @layer utilities {
+    .scrollbar-dark {
+        scrollbar-color: #363c49 transparent;
+        scrollbar-width: thin;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-thumb {
+        background: #363c49;
+        border: 2px solid #08090d;
+        border-radius: 999px;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+        background: #4c5464;
+    }
+
     .gradient-text-motion {
         color: transparent;
         background-position: 0% 50%;

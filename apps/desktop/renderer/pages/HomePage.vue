@@ -46,6 +46,7 @@ const workspaceProjectsFromStore = shallowRef<WorkspaceProject[]>(
     props.initialProjects
 );
 let unsubscribeAgentEvents: (() => void) | undefined;
+const navigatedAgentRunIds = new Set<string>();
 const workspaceNavItems = computed(() =>
     getWorkspaceNavItems(activeView.value)
 );
@@ -91,12 +92,20 @@ const loadWorkspaceProjects = async () => {
     );
 };
 
+const navigateToAgentRun = async (runId: string) => {
+    if (navigatedAgentRunIds.has(runId)) return;
+
+    navigatedAgentRunIds.add(runId);
+    await router.push(`/create/runs/${runId}`);
+};
+
 const appendAgentEvent = (event: DesktopAgentRunEvent) => {
     createValidationErrorMessage.value = undefined;
     agentEvents.value = [...agentEvents.value, event];
 
     if (event.type === 'run.started') {
         activeAgentRunId.value = event.runId;
+        void navigateToAgentRun(event.runId);
     }
 
     if (event.type === 'run.completed') {
@@ -139,7 +148,7 @@ const handleAgentSubmit = async (input: CreateAgentSubmitInput) => {
     }
 
     activeAgentRunId.value = result.data.runId;
-    await router.push(`/create/runs/${result.data.runId}`);
+    void navigateToAgentRun(result.data.runId);
 };
 
 const getLatestAgentRunId = () =>
