@@ -1,96 +1,331 @@
 # Magicut
 
-Magicut 是一个 AI 驱动的桌面端智能视频剪辑平台，面向短视频创作者、课程内容创作者和需要快速组织音视频素材的个人工作流。
-它把文稿、本地视频素材、口播配音和可编辑时间线串成一条自动化创作流程：用户输入文稿、选择配音音色和本地素材目录后，由桌面端调度视频创作 agent，生成可继续编辑的视频工程。
+**English** | [简体中文](#简体中文)
 
-这个项目是一个纯 vibe coding 推进的项目：需求、架构、界面和功能都在与 AI 编程助手的持续协作中迭代完成，重点是用真实开发节奏探索 AI Agent 如何参与桌面端智能剪辑产品的构建。
+Magicut is a personal Vibe Coding practice project for a vertical AI video-editing Agent in the short-form video creation domain. It uses a Vue 3 + Electron desktop architecture to explore how AI coding assistants can participate in the full cycle of building a complex product prototype, from requirements and UI iteration to agent workflow, media handling, testing, and release-oriented engineering.
 
-## 项目定位
+The product direction is an AI-powered desktop video editing workflow: users provide a script, choose a voice, select a local media folder, and let the video creation Agent scan assets, plan scenes, match footage, generate narration, organize subtitles, and produce a video project that can continue to be edited.
 
-Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它通过多节点视频创作 Agent，把文稿输入、本地素材匹配、分镜规划、TTS 配音、字幕生成和时间线工程组织串联起来，帮助用户自动完成从创意输入到可编辑视频工程的初步生成，把更多创意决策留给人，减少重复性的剪辑准备工作。
+## What It Does
 
-当前仓库实现的是 Vue 3 + Electron Forge 版本。它的核心方向是让大模型能力适配剪辑 workflow，把创意输入、本地素材、口播配音、字幕和工程时间线接成一条可继续编辑的桌面端工作流。
+Current capabilities:
 
-## 当前进度
+- pnpm monorepo with desktop, server, agent, and video project packages.
+- Electron Forge + Vite + Vue 3 desktop app.
+- Nuxt/Nitro server app kept as the Vue-ecosystem server placeholder.
+- `@magicut/video-project` for video project schemas, fixtures, and validation.
+- `@magicut/video-agent` for the video creation Agent, model provider, TTS provider, asset scanning, and workflow nodes.
+- Create page, workspace project list, independent Agent run page, and editor foundation.
+- Local media folder selection through the system folder picker.
+- Local video scanning, asset matching, scene planning, TTS narration generation, and project persistence.
+- Agent run page at `/create/runs/:runId` for progress display, scene confirmation, cancellation, and editor entry after completion.
+- Agent run events, streamed stage reports, and persisted `ai.conversation` history in the generated video project.
+- `magicut-media://` protocol for loading local video, thumbnails, and generated narration inside Electron.
+- H.264 preview proxy generation for local HEVC/H.265, 10-bit, and `.MOV` sources that may not preview reliably in Electron Chromium.
+- Editor preview with real media, play/pause, subtitle overlay, timeline playhead, scene highlighting, and basic export dialog.
 
-已经具备的基础能力：
+Current limitations:
 
-- pnpm monorepo 工程结构。
+- Final video composition and export have a working foundation, but still need broader validation with real projects, media formats, and cross-platform packaging.
+- Some advanced editor operations are still UI or state foundations and are not fully wired to real editing behavior.
+- Agent output still needs more validation across real media libraries, LLM providers, and TTS providers.
+- The create page shows an uploaded narration audio entry, but the main flow currently focuses on script input.
+- The Nuxt server is currently a placeholder and is not required by the main desktop workflow yet.
+
+## Tech Stack
+
+### Workspace
+
+- Monorepo: pnpm workspace with `apps/*` and `packages/*`.
+- Package manager: pnpm only.
+- Language: TypeScript.
+- Quality tools: ESLint, Prettier, Vitest, cspell, commitlint, Commitizen.
+- Collaboration rules: root `AGENTS.md`.
+
+### Desktop App
+
+- App: `apps/desktop`.
+- Runtime: Electron `38.4.0`.
+- Desktop toolchain: Electron Forge `7.10.2`.
+- Build tool: Vite `7.1.12` + `@vitejs/plugin-vue` `6.0.1`.
+- Frontend: Vue `3.5.22` + Vue Router `4.5.1`.
+- Routing: Vue Router with `createWebHashHistory()` for Electron local routes.
+- Styling: Tailwind CSS `4.1.x` with the Tailwind v4 CSS-first setup and `@tailwindcss/vite`.
+- State management: no Pinia or Vuex yet. The current app mainly uses Vue Composition API state (`shallowRef`, `computed`, `watch`) plus a small hand-written store for Agent run state.
+- IPC and local files: Electron main/preload expose file dialogs, video project read/write, custom voice import, export path selection, and media utilities.
+- Media tooling: bundled FFmpeg/FFprobe for probing media, resolving narration duration, generating preview proxies, and exporting.
+
+### Agent And Project Data
+
+- Agent package: `packages/video-agent`.
+- Agent workflow: LangGraph.js, LangChain OpenAI-compatible provider, Zod, dotenv, ws.
+- Project schema package: `packages/video-project`.
+- Validation: Zod schemas protect Agent output, run events, and video project data consumed by the desktop UI.
+
+### Server
+
+- App: `apps/server`.
+- Stack: Nuxt `4` with Nitro server routes.
+- Current role: Vue-ecosystem server placeholder. It currently provides a placeholder app page and a health check endpoint. The desktop workflow does not depend on it yet.
+
+## Project Structure
+
+```text
+.
+├── apps
+│   ├── desktop          # Electron Forge + Vite + Vue 3 desktop app
+│   └── server           # Nuxt/Nitro server placeholder
+├── packages
+│   ├── video-agent      # Video creation Agent, model/TTS providers, workflow nodes
+│   └── video-project    # Video project schemas, fixtures, validation
+├── .codex/skills        # Codex skills used by this project
+├── AGENTS.md            # Agent collaboration constraints
+├── pnpm-workspace.yaml
+└── package.json
+```
+
+## Requirements
+
+### Node And pnpm
+
+- Node.js: `>=22 <23`.
+- The repo pins Node `22.20.0` through `.nvmrc`, `.node-version`, `.tool-versions`, and the `package.json` Volta field.
+- pnpm: `11.4.0`, pinned by `packageManager` and Volta.
+- Use pnpm only. Do not mix npm or yarn in this workspace.
+
+Common version switching options:
+
+```bash
+# nvm
+nvm use
+
+# fnm
+fnm use
+
+# mise or asdf
+mise install
+mise use
+
+# Volta switches automatically when entering the project
+node -v
+pnpm -v
+```
+
+### Local Media
+
+- The create flow expects a folder, not a single video file.
+- Video files may look disabled in the macOS folder picker because the picker is selecting the parent folder.
+- Supported scanned video extensions: `.mp4`, `.mov`, `.m4v`, `.webm` (case-insensitive).
+- Only the first level of the selected folder is scanned for now; nested folders are not scanned recursively.
+- The current system user must have read permission for the selected folder.
+- Generated projects load videos, thumbnails, and narration through `magicut-media://`.
+- iPhone HEVC/H.265, 10-bit, and `.MOV` sources may show a black preview in Electron Chromium. Magicut generates H.264/yuv420p `.mp4` preview proxies for editor playback without modifying the original files.
+- Existing old projects are not rewritten automatically. Recreate the project if an old HEVC/MOV project still previews as black.
+
+### LLM And TTS Configuration
+
+Real Agent generation requires LLM and TTS credentials. The desktop app can start without them, but scene planning, narration, and the full Agent workflow will not run correctly until they are configured.
+
+Create a local environment file from `.env.example`. The desktop app checks `.env.local`, `.env`, then `env` from the repo root.
+
+```bash
+LLM_MODEL=your-llm-model
+TTS_MODEL=your-tts-model
+BASE_URL=https://your-model-provider.example.com/api
+API_KEY=your-local-api-key
+```
+
+Do not commit real keys.
+
+## Installation
+
+```bash
+pnpm i
+```
+
+Start the desktop app:
+
+```bash
+pnpm start
+```
+
+Equivalent desktop command:
+
+```bash
+pnpm dev:desktop
+```
+
+Start the server placeholder:
+
+```bash
+pnpm dev:server
+```
+
+## Common Commands
+
+```bash
+# Desktop development
+pnpm start
+
+# All tests
+pnpm test:run
+
+# All lint checks
+pnpm lint
+
+# Formatting check
+pnpm exec prettier --check .
+
+# Package desktop app
+pnpm package
+
+# Build installers
+pnpm make
+```
+
+Desktop-only commands:
+
+```bash
+pnpm --filter @magicut/desktop test:run
+pnpm --filter @magicut/desktop lint
+pnpm --filter @magicut/desktop package:mac
+pnpm --filter @magicut/desktop package:win
+```
+
+Core package commands:
+
+```bash
+pnpm --filter @magicut/video-agent test:run
+pnpm --filter @magicut/video-agent typecheck
+pnpm --filter @magicut/video-project test:run
+pnpm --filter @magicut/video-project typecheck
+```
+
+## Basic Workflow
+
+1. Start the desktop app.
+2. Enter or paste a video script.
+3. Choose a narration voice.
+4. Click the local media folder selector and choose the folder that contains video assets.
+5. Create the project and wait for the Agent to scan assets, plan scenes, match footage, generate narration, and save the project.
+6. Confirm scenes when the run page asks for confirmation.
+7. Open the generated project in the editor.
+8. Preview real footage, subtitles, narration, and timeline tracks.
+
+If the local folder cannot be read, check that:
+
+- You selected a folder, not a single video.
+- The folder exists and the current user can read it.
+- The video files are directly inside the selected folder.
+- The folder contains `.mp4`, `.mov`, `.m4v`, or `.webm` files.
+
+## Git And Commits
+
+This project uses commitlint and Commitizen. Validate a commit message before committing:
+
+```bash
+printf 'feat: add something\n' | pnpm exec commitlint
+```
+
+Commit through Commitizen:
+
+```bash
+pnpm commit
+```
+
+Use Conventional Commits, for example:
+
+- `feat: add project preview`
+- `fix: repair electron install check`
+- `docs: update readme`
+
+## Development Notes
+
+- Use pnpm only.
+- Commit dependency changes with `pnpm-lock.yaml`.
+- Do not commit `node_modules`, local caches, real secrets, or temporary files.
+- Prefer focused changes that match existing project patterns.
+- For code changes, run relevant checks:
+
+```bash
+pnpm -r --if-present run lint
+pnpm -r --if-present run test:run
+pnpm exec prettier --check .
+```
+
+Do not use `pnpm -r --if-present run format` as a pure verification command because it rewrites files.
+
+---
+
+## 简体中文
+
+[English](#magicut) | **简体中文**
+
+Magicut 是一个个人 Vibe Coding 实践项目，面向短视频创作这一垂直场景，探索以视频创作 Agent 为核心的 AI 智能剪辑桌面应用。项目基于 Vue 3 生态 + Electron 桌面端架构，重点验证 AI 编程助手如何参与复杂产品原型开发的完整流程，包括需求拆解、界面迭代、智能体流程、媒体处理、测试验证和工程化交付。
+
+产品方向是一条 AI 驱动的桌面端视频剪辑工作流：用户输入文稿、选择配音音色、选择本地素材目录后，由视频创作 Agent 扫描素材、规划分镜、匹配素材、生成口播配音、组织字幕和时间线，最终生成可继续编辑的视频工程。
+
+## 项目能力
+
+当前已经具备的能力：
+
+- pnpm monorepo 工程结构，包含桌面端、服务端占位、Agent 包和视频工程数据包。
 - Electron Forge + Vite + Vue 3 桌面端。
-- Nuxt 服务端目录占位，当前主要开发重心仍在桌面端。
-- 视频工程数据结构与校验包 `@magicut/video-project`。
-- LangGraph 风格的视频创作 agent 包 `@magicut/video-agent`。
-- 桌面端创建页、工作台项目列表、编辑器基础界面。
-- 创建页支持通过系统文件夹选择器选择本地素材目录，不再要求手动粘贴目录路径。
-- 本地素材目录扫描、视频素材匹配、分镜规划、TTS 配音、工程保存的基础链路。
-- 独立智能体运行页 `/create/runs/:runId`，用于展示创建过程、分镜确认、阶段进度和完成后的编辑器入口。
-- Agent 运行事件支持 `model.stream.*` 流式公开阶段报告，并可把运行会话持久化到视频工程的 `ai.conversation`。
-- `magicut-media://` 本地媒体协议，用于在 Electron 中预览项目视频、配音和缩略图素材。
-- 本地 HEVC/H.265、10-bit、`.MOV` 等 Electron 预览不稳定素材会自动生成 H.264 MP4 预览代理，减少 iPhone 原片在编辑器中黑屏的问题。
-- 编辑器内真实素材预览、播放/暂停、字幕浮层、时间线播放头和分镜高亮。
-- 编辑器内已有导出弹窗、输出路径选择和基础导出链路。
+- Nuxt/Nitro 服务端应用，作为 Vue 生态服务端占位。
+- `@magicut/video-project` 视频工程 schema、fixture 和校验逻辑。
+- `@magicut/video-agent` 视频创作 Agent、模型 provider、TTS provider、素材扫描和流程节点。
+- 创建页、工作台项目列表、独立 Agent 运行页和编辑器基础界面。
+- 通过系统文件夹选择器选择本地素材目录。
+- 本地视频素材扫描、素材匹配、分镜规划、TTS 配音生成和工程持久化。
+- 独立智能体运行页 `/create/runs/:runId`，用于展示创建过程、分镜确认、取消任务和完成后的编辑器入口。
+- Agent 运行事件、阶段流式报告，以及写入视频工程的 `ai.conversation` 会话记录。
+- `magicut-media://` 本地媒体协议，用于在 Electron 中加载视频、缩略图和配音文件。
+- 对 Electron Chromium 预览不稳定的 HEVC/H.265、10-bit、`.MOV` 素材自动生成 H.264 预览代理。
+- 编辑器内真实素材预览、播放/暂停、字幕浮层、时间线播放头、分镜高亮和基础导出弹窗。
 
-未完成能力统一记录在这里：
+当前限制：
 
 - 视频最终合成与导出能力已有基础链路，但仍需要更多真实工程、素材格式和跨平台场景验证。
 - 编辑器内部分高级操作仍是界面或基础状态，尚未全部接入真实编辑行为。
-- agent 生成结果仍需要更多真实素材、模型和 TTS 场景验证。
+- Agent 生成结果仍需要更多真实素材、模型和 TTS 场景验证。
 - 创建页的“上传口播音频”目前是入口展示，主流程仍以输入文稿为主。
-- Nuxt 服务端应用目前仅保留占位页面和健康检查接口，尚未作为桌面端主流程依赖。
+- Nuxt 服务端当前是占位工程，尚未作为桌面端主流程依赖。
 
 ## 技术栈
 
 ### 工程与包管理
 
-- Monorepo：`pnpm` workspace，工作区包含 `apps/*` 和 `packages/*`。
-- 包管理：统一使用 `pnpm`，根目录提供桌面端、服务端、测试、lint、格式检查和提交相关脚本。
-- Workspace 配置：`pnpm-workspace.yaml` 使用 hoisted node linker，并为 Electron、esbuild、sharp 等原生依赖声明 allow builds。
-- 开发语言：TypeScript 是主要开发语言。
+- Monorepo：pnpm workspace，工作区包含 `apps/*` 和 `packages/*`。
+- 包管理：只使用 pnpm。
+- 开发语言：TypeScript。
+- 质量工具：ESLint、Prettier、Vitest、cspell、commitlint、Commitizen。
+- 协作规范：根目录 `AGENTS.md`。
 
 ### 桌面端
 
 - 应用位置：`apps/desktop`。
-- 桌面运行时：Electron `38.4.0`，负责窗口管理、IPC、本地文件能力和 `magicut-media://` 本地媒体协议。
-- 桌面工程：Electron Forge `7.10.2`，负责开发启动、打包、maker 配置和 Vite 插件集成。
-- 构建工具：Vite `7.1.12` + `@vitejs/plugin-vue` `6.0.1`，分别支撑 renderer、main、preload 的开发与构建。
+- 桌面运行时：Electron `38.4.0`。
+- 桌面工程：Electron Forge `7.10.2`。
+- 构建工具：Vite `7.1.12` + `@vitejs/plugin-vue` `6.0.1`。
 - 前端框架：Vue `3.5.22` + Vue Router `4.5.1`。
-- 状态管理：当前没有引入 Pinia 或 Vuex，主要使用 Vue 3 Composition API 的 `shallowRef`、`computed`、`watch` 以及少量手写轻量 store。
-- 路由方案：Vue Router 4 + `createWebHashHistory()`，适配 Electron 桌面端本地路由。
-- 样式方案：Tailwind CSS `4.1.x` + `@tailwindcss/vite`，使用 Tailwind v4 CSS-first 入口和组件内 utility class。
-- 测试工具：Vitest，用于桌面端流程、IPC、媒体协议和核心 UI 状态测试。
-- 本地文件能力：通过 Electron main/preload IPC 暴露给 renderer，例如 `fileDialog.selectSourceDirectory()`、视频工程读写、自定义音色导入和导出路径选择。
-- 本地媒体处理：内置 FFmpeg/FFprobe 二进制用于媒体探测、TTS 音频时长解析、视频导出和 HEVC/MOV 预览代理生成。
+- 路由方案：Vue Router + `createWebHashHistory()`，适配 Electron 本地路由。
+- 样式方案：Tailwind CSS `4.1.x`，使用 Tailwind v4 CSS-first 入口和 `@tailwindcss/vite`。
+- 状态管理：当前没有引入 Pinia 或 Vuex，主要使用 Vue Composition API 的 `shallowRef`、`computed`、`watch`，以及少量手写轻量 store。
+- IPC 与本地文件：通过 Electron main/preload 暴露文件夹选择、视频工程读写、自定义音色导入、导出路径选择和媒体工具。
+- 本地媒体处理：内置 FFmpeg/FFprobe，用于媒体探测、配音时长解析、预览代理生成和导出。
 
-### 前端状态、路由与样式
+### 智能体与工程数据
 
-- 页面局部状态直接保留在 Vue SFC 中，例如创建页、工作台、编辑器播放状态和配置面板状态。
-- 跨页面共享状态目前只在必要处抽成轻量模块 store，例如 `apps/desktop/renderer/stores/agent-run-store.ts` 负责 agent run 事件聚合、确认/取消、运行页状态和会话持久化。
-- 当前阶段暂不使用 Pinia；后续如果项目列表缓存、当前项目、agent run、用户配置、编辑器配置等跨页面状态继续扩大，可以再逐步迁移到 Pinia setup store。
-- 路由集中定义在 `apps/desktop/renderer/router/index.ts`，当前包含创建页、工作台、运行页和编辑器路由。
-- 全局样式入口为 `apps/desktop/renderer/index.css`，通过 `@import 'tailwindcss';` 启用 Tailwind CSS v4，并用 `@layer base` / `@layer utilities` 放置少量全局样式和动画。
-
-### 智能创作与工程数据
-
-- Agent 包：`packages/video-agent`，封装视频创作 agent、模型 provider、TTS provider、素材扫描和流程节点。
-- Agent 技术：LangGraph、LangChain OpenAI-compatible provider、Zod、dotenv、ws。
-- 工程数据包：`packages/video-project`，定义视频工程 schema、fixture 和校验逻辑。
-- 数据校验：使用 Zod 约束 agent 输出和视频工程结构，保证桌面端可消费、可预览、可继续编辑。
+- Agent 包：`packages/video-agent`。
+- Agent 技术：LangGraph.js、LangChain OpenAI-compatible provider、Zod、dotenv、ws。
+- 工程数据包：`packages/video-project`。
+- 数据校验：使用 Zod 约束 Agent 输出、运行事件和桌面端消费的视频工程数据。
 
 ### 服务端
 
 - 应用位置：`apps/server`。
-- 技术栈：Nuxt `4`，基于 Vue 生态和 Nitro server routes。
-- 当前结构：`app.vue` 提供服务端占位页面，`server/api/health.get.ts` 提供健康检查接口。
-- 当前角色：保留 Vue 生态服务端工程结构，主流程目前以桌面端为核心，后续可承载账号、素材管理、云端任务或发布能力。
-
-### 质量与协作
-
-- 静态检查：ESLint。
-- 格式化：Prettier。
-- 单元测试：Vitest。
-- 提交规范：commitlint + Commitizen，提交入口为 `pnpm commit`。
-- 拼写检查：cspell。
-- Agent 协作规范：根目录 `AGENTS.md`。
+- 技术栈：Nuxt `4` + Nitro server routes。
+- 当前角色：Vue 生态服务端占位工程，目前提供占位页面和健康检查接口，桌面端主流程暂不依赖它。
 
 ## 目录结构
 
@@ -98,9 +333,9 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 .
 ├── apps
 │   ├── desktop          # Electron Forge + Vite + Vue 3 桌面端
-│   └── server           # Nuxt 服务端占位
+│   └── server           # Nuxt/Nitro 服务端占位
 ├── packages
-│   ├── video-agent      # 视频创作 agent、模型/TTS provider、流程节点
+│   ├── video-agent      # 视频创作 Agent、模型/TTS provider、流程节点
 │   └── video-project    # 视频工程 schema、fixture、校验
 ├── .codex/skills        # 当前项目使用的 Codex skills
 ├── AGENTS.md            # 项目内 Agent 协作约束
@@ -110,29 +345,47 @@ Magicut 是一款面向短视频创作者的 AI 智能剪辑桌面应用。它�
 
 ## 环境要求
 
-### 本地开发
+### Node 与 pnpm
 
-- Node.js：`>=22 <23`。当前项目通过 `.nvmrc`、`.node-version`、`.tool-versions` 和 `package.json` 的 `volta` 字段统一固定到 Node `22.20.0`，支持 nvm、fnm、mise/asdf、Volta 等工具自动切换版本。
-- pnpm：本项目只使用 pnpm 管理依赖和 workspace，不混用 npm 或 yarn。
-- Git：用于版本管理、commitlint hook 和 `pnpm commit` 交互式提交。
-- 操作系统：macOS、Windows、Linux 均可用于开发 Electron 应用；当前打包脚本主要覆盖 macOS 与 Windows。
-- Electron 二进制：`pnpm start` 前会执行 `apps/desktop/scripts/ensure-electron-installed.mjs` 检查 Electron 安装状态。如果 Electron 安装损坏，请按终端提示重新安装依赖。
+- Node.js：`>=22 <23`。
+- 当前仓库通过 `.nvmrc`、`.node-version`、`.tool-versions` 和 `package.json` 的 Volta 字段统一固定到 Node `22.20.0`。
+- pnpm：`11.4.0`，通过 `packageManager` 和 Volta 固定。
+- 本项目只使用 pnpm，不混用 npm 或 yarn。
+
+常见 Node 自动切换方式：
+
+```bash
+# nvm
+nvm use
+
+# fnm
+fnm use
+
+# mise 或 asdf
+mise install
+mise use
+
+# Volta 进入项目后自动切换
+node -v
+pnpm -v
+```
 
 ### 本地素材
 
-- 创建流程需要通过系统弹窗选择一个本地素材目录，而不是选择单个视频文件。
-- 在目录选择弹窗中，视频文件显示为置灰是正常现象，因为当前选择目标是文件夹。
-- 素材目录应包含 `.mp4`、`.mov`、`.m4v` 或 `.webm` 视频文件，后缀大小写不敏感，例如 `.MOV` 可以被识别。
-- 当前只扫描所选目录的第一层文件，不递归扫描子目录。
+- 创建流程需要选择素材文件夹，而不是单个视频文件。
+- 在 macOS 文件夹选择弹窗中，视频文件显示为置灰是正常现象，因为当前选择目标是外层文件夹。
+- 支持扫描的视频后缀：`.mp4`、`.mov`、`.m4v`、`.webm`，大小写不敏感。
+- 当前只扫描所选目录第一层文件，暂不递归扫描子目录。
 - Electron 需要当前系统用户具备该目录读取权限。
-- 生成后的工程会通过 `magicut-media://` 协议读取项目内视频、缩略图和配音素材。
-- iPhone 常见的 HEVC/H.265、10-bit、`.MOV` 原片可能在 Electron 内置 Chromium 预览中黑屏。创建工程时，桌面端会用内置 FFmpeg 自动生成 H.264/yuv420p 的 `.mp4` 预览代理文件，并让编辑器预览读取该代理文件。
-- 预览代理只影响桌面端编辑器预览路径，不会修改原始素材文件；首次生成工程时如果素材较大，可能会多等待一小段转码时间。
-- 已经生成过的旧工程不会自动改写素材路径。如果旧工程里遇到 HEVC/MOV 黑屏，请重新走一次创建流程生成新工程。
+- 生成后的工程会通过 `magicut-media://` 协议读取视频、缩略图和配音文件。
+- iPhone 常见的 HEVC/H.265、10-bit、`.MOV` 原片可能在 Electron Chromium 中黑屏。Magicut 会自动生成 H.264/yuv420p 的 `.mp4` 预览代理用于编辑器播放，同时不会修改原始素材。
+- 已生成过的旧工程不会自动改写素材路径。如果旧工程仍然遇到 HEVC/MOV 黑屏，请重新走一次创建流程生成新工程。
 
-### 必需的模型与 TTS 配置
+### LLM 与 TTS 配置
 
-完整智能创作流程依赖真实 LLM 和 TTS 服务。首次运行前必须在本地环境文件中配置模型服务信息，否则桌面端可以启动，但 agent 生成配音、分镜规划等真实链路无法跑通。
+完整智能创作流程依赖真实 LLM 和 TTS 服务。桌面端可以在未配置时启动，但分镜规划、口播配音和完整 Agent 链路需要配置后才能正常跑通。
+
+请基于 `.env.example` 创建本地环境文件。桌面端启动时会按顺序查找根目录下的 `.env.local`、`.env`、`env`。
 
 ```bash
 LLM_MODEL=your-llm-model
@@ -141,11 +394,9 @@ BASE_URL=https://your-model-provider.example.com/api
 API_KEY=your-local-api-key
 ```
 
-桌面端启动时会按顺序查找根目录下的 `.env.local`、`.env`、`env`。仓库提供 `.env.example` 作为模板，请不要提交真实密钥。
+不要提交真实密钥。
 
-## 安装与启动
-
-安装依赖：
+## 安装
 
 ```bash
 pnpm i
@@ -157,13 +408,13 @@ pnpm i
 pnpm start
 ```
 
-等价命令：
+等价桌面端命令：
 
 ```bash
 pnpm dev:desktop
 ```
 
-启动服务端开发模式：
+启动服务端占位应用：
 
 ```bash
 pnpm dev:server
@@ -211,25 +462,23 @@ pnpm --filter @magicut/video-project typecheck
 
 ## 基础使用流程
 
-当前桌面端主流程大致如下：
-
 1. 启动桌面端应用。
-2. 在创建页输入或粘贴视频文稿。
+2. 输入或粘贴视频文稿。
 3. 选择配音音色。
-4. 点击“本地素材目录”，在系统弹窗中选择包含视频素材的文件夹。
-5. 点击创建，等待 agent 扫描素材、规划分镜、匹配素材、生成配音并保存工程。
-6. 在工作台打开生成的项目。
-7. 在编辑器中预览真实素材、查看分镜字幕和时间线轨道。
+4. 点击本地素材目录选择器，选择包含视频素材的文件夹。
+5. 点击创建，等待 Agent 扫描素材、规划分镜、匹配素材、生成配音并保存工程。
+6. 在运行页按提示确认分镜。
+7. 打开生成的视频工程。
+8. 在编辑器中预览真实素材、字幕、配音和时间线轨道。
 
 如果本地素材目录无法读取，请优先确认：
 
 - 选择的是素材文件夹，不是单个视频文件。
 - 目录存在，并且当前系统用户有读取权限。
-- 视频文件直接放在所选目录第一层，而不是更深的子目录里。
+- 视频文件直接放在所选目录第一层。
 - 目录内包含 `.mp4`、`.mov`、`.m4v` 或 `.webm` 视频文件。
-- 如果在系统弹窗里看到视频文件置灰，这是文件夹选择模式的正常表现；选中外层素材目录即可。
 
-## Git 与提交约定
+## Git 与提交
 
 本项目使用 commitlint 和 Commitizen。提交前建议先检查提交信息：
 
@@ -254,12 +503,13 @@ pnpm commit
 - 使用 pnpm，不混用 npm 或 yarn。
 - 依赖变更需要同步提交 `pnpm-lock.yaml`。
 - 不提交 `node_modules`、本地缓存、真实密钥或临时文件。
+- 修改代码时遵循当前项目模式，避免无关重构。
 - 修改代码后优先运行：
 
 ```bash
 pnpm -r --if-present run lint
-pnpm exec prettier --check .
 pnpm -r --if-present run test:run
+pnpm exec prettier --check .
 ```
 
-- 不把 `pnpm -r --if-present run format` 当作纯验证命令，因为它会改写文件。
+不要把 `pnpm -r --if-present run format` 当作纯验证命令，因为它会改写文件。
