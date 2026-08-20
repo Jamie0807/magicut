@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useTemplateRef, watch } from 'vue';
+import { computed, shallowRef, useTemplateRef, watch } from 'vue';
 
 import previewImageUrl from '../../assets/editor-preview.png';
 import { defaultSubtitleSettings } from '../../constants/config';
@@ -50,6 +50,7 @@ const emit = defineEmits<{
 const audioRef = useTemplateRef<HTMLAudioElement>('audioRef');
 const musicAudioRef = useTemplateRef<HTMLAudioElement>('musicAudioRef');
 const videoRef = useTemplateRef<HTMLVideoElement>('videoRef');
+const previousVideoLocalTimeMs = shallowRef<number | undefined>();
 
 const formatTwoDigits = (value: number) => String(value).padStart(2, '0');
 
@@ -187,6 +188,21 @@ const activeVoiceCue = computed(() =>
 const activeVideoPlaybackRate = computed(
     () => activeSegment.value?.playbackRate ?? 1
 );
+const shouldLoopVideoSource = computed(() => {
+    const segment = activeSegment.value;
+
+    if (!segment || segment.sourceStartMs !== 0) return false;
+
+    const sourceDurationMs = Math.max(
+        0,
+        segment.sourceEndMs - segment.sourceStartMs
+    );
+    const timelineDurationMs = Math.max(0, segment.endMs - segment.startMs);
+    const playbackDurationMs =
+        sourceDurationMs / Math.max(activeVideoPlaybackRate.value, 0.1);
+
+    return playbackDurationMs > 0 && playbackDurationMs < timelineDurationMs;
+});
 const activeVoicePlaybackRate = computed(
     () => activeVoiceCue.value?.playbackRate ?? 1
 );
@@ -245,8 +261,11 @@ const handleVideoLoadedMetadata = (event: Event) => {
     const element = event.currentTarget as HTMLMediaElement;
 
     element.playbackRate = activeVideoPlaybackRate.value;
+    element.loop = shouldLoopVideoSource.value;
+    previousVideoLocalTimeMs.value = localTimeMs.value;
     syncMediaCurrentTime({
         element,
+        force: true,
         timeMs: localTimeMs.value
     });
 };
@@ -272,6 +291,32 @@ const handleMusicLoadedMetadata = (event: Event) => {
     });
 };
 
+const syncVideoCurrentTime = ({ force = false }: { force?: boolean } = {}) => {
+    const video = videoRef.value;
+
+    if (!video) return;
+
+    const nextLocalTimeMs = localTimeMs.value;
+    const previousLocalTimeMs = previousVideoLocalTimeMs.value;
+    previousVideoLocalTimeMs.value = nextLocalTimeMs;
+
+    if (
+        !force &&
+        props.isPlaying &&
+        shouldLoopVideoSource.value &&
+        typeof previousLocalTimeMs === 'number' &&
+        nextLocalTimeMs < previousLocalTimeMs
+    ) {
+        return;
+    }
+
+    syncMediaCurrentTime({
+        element: video,
+        force,
+        timeMs: nextLocalTimeMs
+    });
+};
+
 watch(
     [
         activeVideoPlaybackRate,
@@ -281,12 +326,14 @@ watch(
         mediaSource,
         music,
         musicLocalTimeMs,
+        shouldLoopVideoSource,
         voiceLocalTimeMs,
         voiceSource
     ],
     () => {
         if (videoRef.value) {
             videoRef.value.playbackRate = activeVideoPlaybackRate.value;
+            videoRef.value.loop = shouldLoopVideoSource.value;
         }
 
         if (audioRef.value) {
@@ -298,10 +345,7 @@ watch(
             musicAudioRef.value.volume = music.value?.volume ?? 0.6;
         }
 
-        syncMediaCurrentTime({
-            element: videoRef.value,
-            timeMs: localTimeMs.value
-        });
+        syncVideoCurrentTime();
         syncMediaCurrentTime({
             element: audioRef.value,
             timeMs: voiceLocalTimeMs.value
@@ -322,6 +366,7 @@ watch(
             localTimeMs.value,
             mediaSource.value,
             music.value?.source,
+            shouldLoopVideoSource.value,
             voiceSource.value
         ] as const,
     () => {
@@ -344,6 +389,7 @@ watch(
             force: true,
             timeMs: localTimeMs.value
         });
+        previousVideoLocalTimeMs.value = localTimeMs.value;
 
         if (props.isPlaying) {
             void audio?.play().catch((): void => undefined);
@@ -375,6 +421,8 @@ watch(
                     :src="mediaSource"
                     :poster="posterSource"
                     :aria-label="activeSegment?.alt ?? data.alt"
+                    :data-preview-video-loop="shouldLoopVideoSource"
+                    :loop="shouldLoopVideoSource"
                     class="absolute inset-0 h-full w-full object-cover"
                     muted
                     playsinline

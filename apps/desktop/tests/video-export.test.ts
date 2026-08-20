@@ -212,6 +212,16 @@ describe('video export', () => {
         const { createVideoExportFfmpegCommand, resolveBundledMusicFilePath } =
             await import('../client/video-export-ffmpeg');
         const project = structuredClone(sampleVideoProject);
+        const videoTrack = project.tracks.find(
+            (track) => track.kind === 'video'
+        );
+        const firstVideoClip = videoTrack?.clips.find(
+            (clip): clip is VideoClip => clip.kind === 'video'
+        );
+
+        if (!firstVideoClip) throw new Error('missing video clip');
+
+        firstVideoClip.sourceEndMs = 4_000;
         const command = createVideoExportFfmpegCommand({
             bundledMusicPath: resolveBundledMusicFilePath({
                 appPath: '/repo/apps/desktop',
@@ -259,7 +269,8 @@ describe('video export', () => {
             ])
         );
         expect(command.filterComplex).toContain('concat=n=1:v=1:a=0');
-        expect(command.filterComplex).toContain('tpad=stop_mode=clone');
+        expect(command.filterComplex).toContain('loop=loop=-1');
+        expect(command.filterComplex).not.toContain('tpad=stop_mode=clone');
         expect(command.filterComplex).toContain('subtitles=');
         expect(command.filterComplex).toContain('FontName=PingFang SC');
         expect(command.filterComplex).toContain('FontSize=24');

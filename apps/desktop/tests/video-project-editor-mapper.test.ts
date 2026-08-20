@@ -469,6 +469,54 @@ describe('videoProjectToEditor', () => {
         expect(data.timeline.clipsByTrack.voice[1]?.label).toBe('旁白01-02');
     });
 
+    it('auto-advances preview source ranges for older projects that reuse one asset from zero', () => {
+        const project = createNineSceneProject();
+        const videoTrack = project.tracks.find(
+            (track) => track.kind === 'video'
+        );
+
+        if (!videoTrack) {
+            throw new Error('Expected video track');
+        }
+
+        project.assets.videos = [
+            {
+                durationMs: 90_000,
+                fps: 30,
+                height: 1080,
+                id: 'video_asset_shared',
+                path: 'assets/videos/shared.mp4',
+                thumbnailIds: [],
+                width: 1920
+            }
+        ];
+        videoTrack.clips = videoTrack.clips.map((clip) => ({
+            ...clip,
+            assetId: 'video_asset_shared',
+            sourceEndMs: clip.endMs - clip.startMs,
+            sourceStartMs: 0
+        }));
+
+        const data = videoProjectToEditor(project);
+
+        if (data.preview.type !== 'video') {
+            throw new Error('Expected video preview');
+        }
+
+        expect(data.preview.segments[0]).toMatchObject({
+            sourceEndMs: 8000,
+            sourceStartMs: 0
+        });
+        expect(data.preview.segments[1]).toMatchObject({
+            sourceEndMs: 20000,
+            sourceStartMs: 8000
+        });
+        expect(data.preview.segments[2]).toMatchObject({
+            sourceEndMs: 26000,
+            sourceStartMs: 20000
+        });
+    });
+
     it('derives the active storyboard and playhead from playback time', () => {
         const data = videoProjectToEditor(createNineSceneProject());
         const storyboard = createPlaybackStoryboard({

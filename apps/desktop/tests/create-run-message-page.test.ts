@@ -124,6 +124,23 @@ describe('create run message page', () => {
         expect(cssSource).not.toContain('scrollbar-width: none');
     });
 
+    it('auto-scrolls the run page to newly streamed content while events are appended', () => {
+        const pageSource = readFileSync(
+            resolve(__dirname, '../renderer/pages/CreateRunScreen.vue'),
+            'utf8'
+        );
+
+        expect(pageSource).toContain(
+            "useTemplateRef<HTMLElement>('runScrollContainer')"
+        );
+        expect(pageSource).toContain('autoScrollSignature');
+        expect(pageSource).toContain('scrollRunContentToLatest');
+        expect(pageSource).toContain('scrollContainer.scrollTo');
+        expect(pageSource).toContain("flush: 'post'");
+        expect(pageSource).toContain('ref="runScrollContainer"');
+        expect(pageSource).toContain('@scroll="handleRunContentScroll"');
+    });
+
     it('aggregates model stream deltas into one assistant message and keeps structured progress separate', () => {
         const viewModel = createAgentConversationViewModel({
             events: [

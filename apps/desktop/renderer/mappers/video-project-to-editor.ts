@@ -281,6 +281,74 @@ const clipsOverlap = (
     second: Pick<ProjectTimelineClip, 'endMs' | 'startMs'>
 ) => first.startMs < second.endMs && second.startMs < first.endMs;
 
+const createAutoAdvanceSourceRangeResolver = ({
+    project,
+    videoClips
+}: {
+    project: VideoProject;
+    videoClips: VideoClip[];
+}) => {
+    const clipsByAssetId = new Map<string, VideoClip[]>();
+    const cursorByAssetId = new Map<string, number>();
+    const videoAssetsById = new Map(
+        project.assets.videos.map((asset) => [asset.id, asset])
+    );
+    const autoAdvanceAssetIds = new Set<string>();
+
+    videoClips.forEach((clip) => {
+        clipsByAssetId.set(clip.assetId, [
+            ...(clipsByAssetId.get(clip.assetId) ?? []),
+            clip
+        ]);
+    });
+
+    clipsByAssetId.forEach((clips, assetId) => {
+        if (
+            clips.length > 1 &&
+            clips.every((clip) => clip.sourceStartMs === 0)
+        ) {
+            autoAdvanceAssetIds.add(assetId);
+        }
+    });
+
+    return (clip: VideoClip) => {
+        if (!autoAdvanceAssetIds.has(clip.assetId)) {
+            return {
+                sourceEndMs: clip.sourceEndMs,
+                sourceStartMs: clip.sourceStartMs
+            };
+        }
+
+        const assetDurationMs = Math.max(
+            1,
+            videoAssetsById.get(clip.assetId)?.durationMs ??
+                clip.sourceEndMs - clip.sourceStartMs
+        );
+        const requestedDurationMs = Math.max(
+            1,
+            Math.round((clip.endMs - clip.startMs) * (clip.speed ?? 1))
+        );
+        const sourceDurationMs = Math.min(assetDurationMs, requestedDurationMs);
+        const usedSourceDurationMs = cursorByAssetId.get(clip.assetId) ?? 0;
+        const wrappedStartMs = usedSourceDurationMs % assetDurationMs;
+        const sourceStartMs =
+            wrappedStartMs + sourceDurationMs <= assetDurationMs
+                ? wrappedStartMs
+                : Math.max(0, assetDurationMs - sourceDurationMs);
+        const sourceEndMs = sourceStartMs + sourceDurationMs;
+
+        cursorByAssetId.set(
+            clip.assetId,
+            usedSourceDurationMs + requestedDurationMs
+        );
+
+        return {
+            sourceEndMs,
+            sourceStartMs
+        };
+    };
+};
+
 const createTrackMeta = ({
     kind,
     project,
@@ -601,6 +669,10 @@ const createPreview = (
         project.assets.subtitles.map((subtitle) => [subtitle.id, subtitle])
     );
     const projectId = project.project.id;
+    const resolveSourceRange = createAutoAdvanceSourceRangeResolver({
+        project,
+        videoClips
+    });
     const segments = videoClips.flatMap((clip) => {
         const videoAsset = project.assets.videos.find(
             (asset) => asset.id === clip.assetId
@@ -608,6 +680,7 @@ const createPreview = (
 
         if (!videoAsset) return [];
 
+        const sourceRange = resolveSourceRange(clip);
         const scene = clip.sceneId ? scenesById.get(clip.sceneId) : undefined;
         const thumbnailId = videoAsset.thumbnailIds[0];
         const matchingThumbnail = project.assets.thumbnails.find(
@@ -670,8 +743,8 @@ const createPreview = (
                     kind: 'video',
                     projectId
                 }),
-                sourceEndMs: clip.sourceEndMs,
-                sourceStartMs: clip.sourceStartMs,
+                sourceEndMs: sourceRange.sourceEndMs,
+                sourceStartMs: sourceRange.sourceStartMs,
                 startMs: clip.startMs,
                 subtitleCues,
                 voiceCues,

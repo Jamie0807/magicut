@@ -9,8 +9,13 @@ export const getPreviewSegmentLocalTimeMs = ({
 }) => {
     if (!segment) return currentTimeMs;
 
+    const sourceDurationMs = Math.max(
+        1,
+        segment.sourceEndMs - segment.sourceStartMs
+    );
+    const segmentLocalTimeMs = Math.max(0, currentTimeMs - segment.startMs);
     const localTimeMs =
-        segment.sourceStartMs + Math.max(0, currentTimeMs - segment.startMs);
+        segment.sourceStartMs + (segmentLocalTimeMs % sourceDurationMs);
 
     return Math.min(
         Math.max(localTimeMs, segment.sourceStartMs),
@@ -27,10 +32,7 @@ export const isPreviewSegmentSourceExhausted = ({
 }) => {
     if (!segment) return false;
 
-    const sourceDurationMs = Math.max(
-        0,
-        segment.sourceEndMs - segment.sourceStartMs
-    );
+    void currentTimeMs;
 
-    return currentTimeMs - segment.startMs >= sourceDurationMs;
+    return false;
 };

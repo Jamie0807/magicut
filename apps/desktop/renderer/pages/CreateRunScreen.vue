@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import {
+    computed,
+    nextTick,
+    onMounted,
+    shallowRef,
+    useTemplateRef,
+    watch
+} from 'vue';
 import { useRoute } from 'vue-router';
 
 import AgentConversationTimeline from '../components/agent/AgentConversationTimeline.vue';
@@ -25,12 +32,59 @@ const snapshot = computed(() => getAgentRunSnapshot(requestedRunId.value));
 const resolvedRunId = computed(
     () => requestedRunId.value ?? snapshot.value.activeRunId
 );
+const runScrollContainer = useTemplateRef<HTMLElement>('runScrollContainer');
+const shouldStickToLatestContent = shallowRef(true);
 const headerTime = new Intl.DateTimeFormat('zh-CN', {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     month: '2-digit'
 }).format(new Date());
+const autoScrollSignature = computed(() => {
+    const events = snapshot.value.events;
+    const lastEvent = events.at(-1);
+    const messages = snapshot.value.viewModel.messages;
+    const lastMessage = messages.at(-1);
+
+    return [
+        resolvedRunId.value ?? '',
+        events.length,
+        lastEvent?.sequence ?? '',
+        lastEvent?.type ?? '',
+        messages.length,
+        lastMessage?.sequence ?? '',
+        lastMessage?.sourceEventType ?? '',
+        lastMessage?.content.length ?? 0,
+        snapshot.value.viewModel.canApprove,
+        snapshot.value.viewModel.canCancel,
+        snapshot.value.viewModel.editorHref ?? ''
+    ].join('|');
+});
+
+const isNearLatestContent = (scrollContainer: HTMLElement) =>
+    scrollContainer.scrollHeight -
+        scrollContainer.scrollTop -
+        scrollContainer.clientHeight <=
+    96;
+
+const scrollRunContentToLatest = (behavior: ScrollBehavior = 'smooth') => {
+    const scrollContainer = runScrollContainer.value;
+
+    if (!scrollContainer || !shouldStickToLatestContent.value) return;
+
+    scrollContainer.scrollTo({
+        behavior,
+        top: scrollContainer.scrollHeight
+    });
+};
+
+const handleRunContentScroll = () => {
+    const scrollContainer = runScrollContainer.value;
+
+    if (!scrollContainer) return;
+
+    shouldStickToLatestContent.value = isNearLatestContent(scrollContainer);
+};
 
 const handleApprove = () => {
     if (!resolvedRunId.value) return;
@@ -46,7 +100,16 @@ const handleCancel = () => {
 
 onMounted(() => {
     ensureAgentRunEventSubscription();
+    scrollRunContentToLatest('auto');
 });
+
+watch(
+    autoScrollSignature,
+    () => {
+        void nextTick(() => scrollRunContentToLatest());
+    },
+    { flush: 'post' }
+);
 </script>
 
 <template>
@@ -69,8 +132,10 @@ onMounted(() => {
                     {{ headerTime }}
                 </time>
                 <div
+                    ref="runScrollContainer"
                     data-create-run-scroll-container="true"
                     class="scrollbar-dark min-h-0 flex-1 overflow-y-auto pb-[28px] pr-2 pt-[18px]"
+                    @scroll="handleRunContentScroll"
                 >
                     <AgentConversationTimeline
                         :view-model="snapshot.viewModel"

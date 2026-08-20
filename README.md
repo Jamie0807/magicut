@@ -6,6 +6,16 @@ Magicut is a personal Vibe Coding practice project for a vertical AI video-editi
 
 The product direction is an AI-powered desktop video editing workflow: users provide a script, choose a voice, select a local media folder, and let the video creation Agent scan assets, plan scenes, match footage, generate narration, organize subtitles, and produce a video project that can continue to be edited.
 
+## Screenshots
+
+| Screenshot 01                                                           | Screenshot 02                                                           | Screenshot 03                                                           |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| <img src="docs/images/screenshot-01.png" alt="Magicut screenshot 01" /> | <img src="docs/images/screenshot-02.png" alt="Magicut screenshot 02" /> | <img src="docs/images/screenshot-03.png" alt="Magicut screenshot 03" /> |
+| Screenshot 04                                                           | Screenshot 05                                                           | Screenshot 06                                                           |
+| <img src="docs/images/screenshot-04.png" alt="Magicut screenshot 04" /> | <img src="docs/images/screenshot-05.png" alt="Magicut screenshot 05" /> | <img src="docs/images/screenshot-06.png" alt="Magicut screenshot 06" /> |
+| Screenshot 07                                                           | Screenshot 08                                                           | Screenshot 09                                                           |
+| <img src="docs/images/screenshot-07.png" alt="Magicut screenshot 07" /> | <img src="docs/images/screenshot-08.png" alt="Magicut screenshot 08" /> | <img src="docs/images/screenshot-09.png" alt="Magicut screenshot 09" /> |
+
 ## What It Does
 
 Current capabilities:
@@ -264,6 +274,16 @@ Do not use `pnpm -r --if-present run format` as a pure verification command beca
 Magicut 是一个个人 Vibe Coding 实践项目，面向短视频创作这一垂直场景，探索以视频创作 Agent 为核心的 AI 智能剪辑桌面应用。项目基于 Vue 3 生态 + Electron 桌面端架构，重点验证 AI 编程助手如何参与复杂产品原型开发的完整流程，包括需求拆解、界面迭代、智能体流程、媒体处理、测试验证和工程化交付。
 
 产品方向是一条 AI 驱动的桌面端视频剪辑工作流：用户输入文稿、选择配音音色、选择本地素材目录后，由视频创作 Agent 扫描素材、规划分镜、匹配素材、生成口播配音、组织字幕和时间线，最终生成可继续编辑的视频工程。
+
+## 项目截图
+
+| 截图 01                                                           | 截图 02                                                           | 截图 03                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| <img src="docs/images/screenshot-01.png" alt="Magicut 截图 01" /> | <img src="docs/images/screenshot-02.png" alt="Magicut 截图 02" /> | <img src="docs/images/screenshot-03.png" alt="Magicut 截图 03" /> |
+| 截图 04                                                           | 截图 05                                                           | 截图 06                                                           |
+| <img src="docs/images/screenshot-04.png" alt="Magicut 截图 04" /> | <img src="docs/images/screenshot-05.png" alt="Magicut 截图 05" /> | <img src="docs/images/screenshot-06.png" alt="Magicut 截图 06" /> |
+| 截图 07                                                           | 截图 08                                                           | 截图 09                                                           |
+| <img src="docs/images/screenshot-07.png" alt="Magicut 截图 07" /> | <img src="docs/images/screenshot-08.png" alt="Magicut 截图 08" /> | <img src="docs/images/screenshot-09.png" alt="Magicut 截图 09" /> |
 
 ## 项目能力
 

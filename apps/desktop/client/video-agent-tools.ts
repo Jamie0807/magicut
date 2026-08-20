@@ -341,6 +341,36 @@ type TimedScene = {
     startMs: number;
 };
 
+const resolveVideoSourceRange = ({
+    assetDurationMs,
+    timelineDurationMs,
+    usedSourceDurationMs,
+    videoSpeed
+}: {
+    assetDurationMs: number;
+    timelineDurationMs: number;
+    usedSourceDurationMs: number;
+    videoSpeed: number;
+}) => {
+    const availableDurationMs = Math.max(1, assetDurationMs);
+    const requestedDurationMs = Math.max(
+        1,
+        Math.round(timelineDurationMs * Math.max(videoSpeed, 0.1))
+    );
+    const sourceDurationMs = Math.min(availableDurationMs, requestedDurationMs);
+    const wrappedStartMs = usedSourceDurationMs % availableDurationMs;
+    const sourceStartMs =
+        wrappedStartMs + sourceDurationMs <= availableDurationMs
+            ? wrappedStartMs
+            : Math.max(0, availableDurationMs - sourceDurationMs);
+
+    return {
+        nextUsedSourceDurationMs: usedSourceDurationMs + requestedDurationMs,
+        sourceEndMs: sourceStartMs + sourceDurationMs,
+        sourceStartMs
+    };
+};
+
 const createSceneVoiceScript = (scene: PlannedScene) =>
     scene.subtitleLines.join('\n') || scene.script;
 
@@ -648,6 +678,7 @@ export const createDesktopVideoAgentTools = ({
                 subtitleIdsBySceneId,
                 timedScenes
             });
+            const usedSourceDurationByAssetId = new Map<string, number>();
             const videoClips = timedScenes.map((timedScene, index) => {
                 const { durationMs, endMs, scene, startMs } = timedScene;
                 const match = matches.find((item) => item.sceneId === scene.id);
@@ -656,9 +687,22 @@ export const createDesktopVideoAgentTools = ({
                     videoAssets[index % videoAssets.length]?.id;
                 const sourceDurationMs =
                     assetById.get(assetId ?? '')?.durationMs ?? durationMs;
+                const resolvedAssetId = assetId ?? videoAssets[0]!.id;
+                const sourceRange = resolveVideoSourceRange({
+                    assetDurationMs: sourceDurationMs,
+                    timelineDurationMs: durationMs,
+                    usedSourceDurationMs:
+                        usedSourceDurationByAssetId.get(resolvedAssetId) ?? 0,
+                    videoSpeed: voiceSettings.voiceSpeed
+                });
+
+                usedSourceDurationByAssetId.set(
+                    resolvedAssetId,
+                    sourceRange.nextUsedSourceDurationMs
+                );
 
                 return {
-                    assetId: assetId ?? videoAssets[0]!.id,
+                    assetId: resolvedAssetId,
                     crop: {
                         height: 1080,
                         width: 1920,
@@ -669,11 +713,8 @@ export const createDesktopVideoAgentTools = ({
                     id: `video_clip_${padIndex(index + 1)}`,
                     kind: 'video' as const,
                     sceneId: scene.id,
-                    sourceEndMs: Math.max(
-                        1,
-                        Math.min(sourceDurationMs, durationMs)
-                    ),
-                    sourceStartMs: 0,
+                    sourceEndMs: sourceRange.sourceEndMs,
+                    sourceStartMs: sourceRange.sourceStartMs,
                     speed: voiceSettings.voiceSpeed,
                     startMs,
                     transform: {

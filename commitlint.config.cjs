@@ -18,9 +18,7 @@ module.exports = {
                 name: 'feat:     ✨  A new feature',
                 emoji: '✨ '
             },
-            {   value: 'fix',
-                name: 'fix:      🐛  A bug fix',
-                emoji: '🐛 ' },
+            { value: 'fix', name: 'fix:      🐛  A bug fix', emoji: '🐛 ' },
             {
                 value: 'docs',
                 name: 'docs:     📝  Documentation only changes',

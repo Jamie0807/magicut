@@ -246,6 +246,34 @@ describe('EditorScreen', () => {
         expect(html).not.toContain('-webkit-text-stroke:2px #050505');
     });
 
+    it('marks short whole-source preview videos as loopable to avoid boundary stalls', async () => {
+        const html = await renderComponent(PreviewPanel, {
+            currentTimeMs: 3500,
+            data: {
+                alt: '短素材循环预览',
+                durationMs: 10_000,
+                segments: [
+                    {
+                        alt: '短视频分镜',
+                        endMs: 10_000,
+                        id: 'segment_short_loop',
+                        source: 'magicut-media://project/project_preview/video/video_short_loop',
+                        sourceEndMs: 4_000,
+                        sourceStartMs: 0,
+                        startMs: 0,
+                        subtitleCues: []
+                    }
+                ],
+                source: 'magicut-media://project/project_preview/video/video_short_loop',
+                type: 'video'
+            },
+            isPlaying: true
+        });
+
+        expect(html).toContain('data-preview-video-loop="true"');
+        expect(html).toContain('loop');
+    });
+
     it('wires preview playback into storyboard and timeline state', () => {
         const editorSource = readFileSync(
             resolve(__dirname, '../renderer/pages/EditorScreen.vue'),
@@ -931,7 +959,7 @@ describe('EditorScreen', () => {
         ).toBe(90_000);
     });
 
-    it('freezes a short source video on its last frame until the next segment', () => {
+    it('loops a short source video inside the segment instead of freezing the last frame', () => {
         const segment: PreviewSegment = {
             alt: '短视频分镜',
             endMs: 10_000,
@@ -948,10 +976,10 @@ describe('EditorScreen', () => {
                 currentTimeMs: 7_500,
                 segment
             })
-        ).toBe(5_000);
+        ).toBe(2_500);
     });
 
-    it('detects when a video source is shorter than its segment', () => {
+    it('keeps short source video segments active so playback can loop', () => {
         const segment: PreviewSegment = {
             alt: '短视频分镜',
             endMs: 10_000,
@@ -974,7 +1002,7 @@ describe('EditorScreen', () => {
                 currentTimeMs: 4_000,
                 segment
             })
-        ).toBe(true);
+        ).toBe(false);
     });
 
     it('advances playback time from the actual animation frame delta', () => {

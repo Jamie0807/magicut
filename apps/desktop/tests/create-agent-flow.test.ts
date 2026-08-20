@@ -973,6 +973,119 @@ describe('create agent flow', () => {
         }
     });
 
+    it('advances source ranges when multiple scenes reuse the same video asset', async () => {
+        const { createDesktopVideoAgentTools } = await import(
+            '../client/video-agent-tools'
+        );
+        const tools = createDesktopVideoAgentTools({ store: {} as never });
+        const project = await tools.assembleTimeline({
+            assets: [
+                {
+                    assetId: 'video_asset_shared',
+                    description: '12 秒青山湖实拍素材',
+                    durationMs: 12_000
+                }
+            ],
+            brief: {
+                audience: '短视频创作者',
+                keyMessages: ['分镜素材复用'],
+                summary: '同一素材应拆成不同画面段',
+                title: '青山湖攻略',
+                tone: '自然',
+                visualStyle: '实拍'
+            },
+            input: {
+                prompt: '做一个青山湖攻略视频',
+                runId: 'run_reuse_ranges',
+                sourceAssetDirectory: '/tmp/magicut-assets'
+            },
+            matches: [
+                {
+                    rankedAssetIds: [
+                        {
+                            assetId: 'video_asset_shared',
+                            reason: '复用长素材第一段',
+                            score: 0.92
+                        }
+                    ],
+                    sceneId: 'scene_001'
+                },
+                {
+                    rankedAssetIds: [
+                        {
+                            assetId: 'video_asset_shared',
+                            reason: '复用长素材第二段',
+                            score: 0.9
+                        }
+                    ],
+                    sceneId: 'scene_002'
+                }
+            ],
+            scenes: [
+                {
+                    durationMs: 4000,
+                    goal: '展示景区入口',
+                    id: 'scene_001',
+                    index: 1,
+                    script: '先看青山湖入口。',
+                    subtitleLines: ['先看青山湖入口。'],
+                    title: '景区入口',
+                    visualIntent: '入口画面'
+                },
+                {
+                    durationMs: 4000,
+                    goal: '展示湖边绿道',
+                    id: 'scene_002',
+                    index: 2,
+                    script: '然后看湖边绿道。',
+                    subtitleLines: ['然后看湖边绿道。'],
+                    title: '湖边绿道',
+                    visualIntent: '绿道画面'
+                }
+            ],
+            voices: [
+                {
+                    assetId: 'voice_asset_001',
+                    durationMs: 4000,
+                    lineIndex: 0,
+                    path: 'assets/voices/scene-001.mp3',
+                    sceneId: 'scene_001',
+                    text: '先看青山湖入口。'
+                },
+                {
+                    assetId: 'voice_asset_002',
+                    durationMs: 4000,
+                    lineIndex: 0,
+                    path: 'assets/voices/scene-002.mp3',
+                    sceneId: 'scene_002',
+                    text: '然后看湖边绿道。'
+                }
+            ]
+        });
+        const videoTrack = project.tracks.find(
+            (track) => track.kind === 'video'
+        );
+
+        expect(videoTrack?.clips).toMatchObject([
+            {
+                assetId: 'video_asset_shared',
+                endMs: 4000,
+                sceneId: 'scene_001',
+                sourceEndMs: 4200,
+                sourceStartMs: 0,
+                startMs: 0
+            },
+            {
+                assetId: 'video_asset_shared',
+                endMs: 8000,
+                sceneId: 'scene_002',
+                sourceEndMs: 8400,
+                sourceStartMs: 4200,
+                startMs: 4000
+            }
+        ]);
+    });
+
     it('stores Electron-playable preview proxies for HEVC MOV video assets', async () => {
         const assetDirectory = await mkdtemp(
             path.join(tmpdir(), 'magicut-assets-')

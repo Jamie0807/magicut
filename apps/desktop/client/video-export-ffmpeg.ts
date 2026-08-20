@@ -324,10 +324,14 @@ const pushVideoClipFilter = ({
     const speed = videoClip.speed ?? 1;
     const playbackSourceDurationSec =
         Math.max(0.001, sourceEndSec - sourceStartSec) / speed;
-    const freezeDurationSec = Math.max(
-        0,
-        timelineDurationSec - playbackSourceDurationSec
+    const shouldLoopSource = playbackSourceDurationSec < timelineDurationSec;
+    const loopFrameCount = Math.max(
+        1,
+        Math.ceil(playbackSourceDurationSec * project.canvas.fps)
     );
+    const loopFilter = shouldLoopSource
+        ? [`loop=loop=-1:size=${loopFrameCount}:start=0`]
+        : [];
 
     filters.push(
         [
@@ -339,9 +343,7 @@ const pushVideoClipFilter = ({
             `crop=${project.canvas.width}:${project.canvas.height}`,
             'setsar=1',
             `fps=${project.canvas.fps}`,
-            `tpad=stop_mode=clone:stop_duration=${formatSeconds(
-                freezeDurationSec
-            )}`,
+            ...loopFilter,
             `trim=duration=${formatSeconds(timelineDurationSec)}`,
             `setpts=PTS-STARTPTS[${label}]`
         ].join(',')
